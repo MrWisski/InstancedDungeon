@@ -1,0 +1,19 @@
+name: InstancedDungeon
+main: net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon
+version: 0.0.1a
+load: STARTUP
+author: MrWisski
+website: https://github.com/MrWisski/InstancedDungeon
+depend: [WorldEdit, WorldGuard, MultiWorld]
+
+commands:
+    id:
+        description: Instanced Dungeon gateway command
+        usage: /id
+        permission: idungeon.use
+        permission-message: You don't have permission to use this command!
+        
+permissions:
+    idungeon.use:
+        description: Basic usage for the Instanced Dungeon gateway command.
+        default: true

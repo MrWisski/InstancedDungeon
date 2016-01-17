@@ -1,0 +1,19 @@
+#DO NOT CHANGE, internal use only. Changing this will reset your entire config!
+configver: 3
+
+#plugin specific configuration
+plugin:
+    #Should this plugin even try to load up?
+    enabled: true
+    #Debug console output - could be VERY spammy.
+    debug: false 
+
+#Dimension configuration
+dimension:
+    #Should we go ahead and create this dimension on startup, if it doesn't exist?
+    forceGen: true
+    #Dimension name we should use.
+    useDim: idungeon
+    #World type we should generate - default is "Empty" - Change at your own peril!
+    useGenerator: Empty
+    
