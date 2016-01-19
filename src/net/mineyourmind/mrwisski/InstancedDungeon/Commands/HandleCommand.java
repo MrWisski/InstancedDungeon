@@ -30,6 +30,8 @@ public class HandleCommand implements CommandExecutor {
 	CommandSave save = null;
 	CommandDungeon dungeon = null;
 	CommandList list = null;
+	CommandMisc misc = null;
+	CommandInstance instance = null;
 	
 	
 	public HandleCommand(FunctionsBridge bridge){
@@ -44,6 +46,10 @@ public class HandleCommand implements CommandExecutor {
 		commands.put(dungeon.getName(), dungeon);
 		list = new CommandList();
 		commands.put(list.getName(), list);
+		misc = new CommandMisc(bridge);
+		commands.put(misc.getName(), misc);
+		instance = new CommandInstance();
+		commands.put(instance.getName(), instance);
 	}
 	
 	private boolean canRun(CommandSender sender, CommandFunctor C){

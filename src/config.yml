@@ -1,5 +1,5 @@
 #DO NOT CHANGE, internal use only. Changing this will reset your entire config!
-configver: 3
+configver: 4
 
 #plugin specific configuration
 plugin:
@@ -16,4 +16,9 @@ dimension:
     useDim: idungeon
     #World type we should generate - default is "Empty" - Change at your own peril!
     useGenerator: Empty
+
+ #Dungeon configuration
+dungeon:
+    #Bordering block, used as the "shell" around each instance, as a list of preferences. use /id misc itemhand to get the material name for the block in your hand!
+    border: [TWILIGHTFOREST_TILEWISPYCLOUD, BEDROCK]
     

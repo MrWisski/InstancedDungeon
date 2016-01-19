@@ -3,6 +3,8 @@ package net.mineyourmind.mrwisski.InstancedDungeon.Dungeons;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.logging.Logger;
 
@@ -18,47 +20,73 @@ import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.regions.Region;
 
 import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
+import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.CSVable;
 
-public class DungeonData {
-	private boolean initialized = false;
-	public Logger log = InstancedDungeon.getInstance().getLogger();
+public class DungeonData extends CSVable{
+	public static class dungeonState{
+		public static final int INVALID = -1;
+		public static final int NEW = 0;
+		public static final int PREPPED = 1;
+		public static final int EDITING = 2;
+		public static final int READY = 3;
+		public static final int IN_USE = 4;
+		
+		public static String toString(int v){
+			String t = "INVALID";
+			switch(v){
+				case -1: t = "INVALID"; break;
+				case 0: t = "NEW"; break;
+				case 1: t = "PREPPED"; break;
+				case 2: t = "EDITING"; break;
+				case 3: t = "READY"; break;
+				case 4: t = "IN USE"; break;
+				default: t = "INVALID"; break;
+			}		
+			return t;
+		}
+	}
 	
 	public DungeonData(String name){
 		this.name = name;
-		initialized = true;
+		this.state = dungeonState.NEW;
+
 	}
 	
 	public DungeonData(){
-		
+		this.state = dungeonState.INVALID;
 	}
 	
-	private String name = "";
-	public String getName() { return name;}
+	public String name = "";
 	//The original worldedit schematic
-	private String templateLoc = "";
-	public String getTemplateLoc(){ return templateLoc; }
-	public void setTemplateLoc(String tLoc){ templateLoc = tLoc;}
-	
+	public String templateLoc = "";
 	//The finished Dungeon Schematic!
-	private String schematicLoc = "";
+	public String schematicLoc = "";
+	//The state of this current dungeon
+	public int state = dungeonState.INVALID;
 	
 	//spawnPoint is calculated relative to the CENTERPOINT of the cuboid!
-	private Vector spawnPoint = new Vector(0,0,0);
-	private int spawnPitch = 0;
-	private int spawnYaw = 0;
+	public int spawnX = 0;
+	public int spawnY = 0;
+	public int spawnZ = 0;
+	public int spawnPitch = 0;
+	public int spawnYaw = 0;
+	
 	private CuboidRegion bounds = new CuboidRegion(new Vector(0,0,0),new Vector(1,1,1));
 	private Vector center = new Vector(0,0,0);
 	
-	private boolean isPrepped = false;
-	private boolean beingEdited = false;
-	private boolean isReady = false;
-	
 	private CuboidClipboard template = null;
+	private CuboidClipboard schematic = null;
 	
-	private DungeonInstance editInst = null;
+	private InstanceData editInst = null;
 	
-	public void setClipboard(CuboidClipboard schem){
+	public void setTemplate(CuboidClipboard schem){
 		template = schem;
+		if(this.state >= dungeonState.PREPPED){
+			log.info("Will not set up template, data is in PREPPED or higher state!");
+			return;
+		}
+		
 		bounds = new CuboidRegion(new Vector(0,0,0),schem.getSize());
 		center = schem.getSize().divide(2);
 				
@@ -67,69 +95,45 @@ public class DungeonData {
 		log.info("Origin X : " + schem.getOrigin().getX() + " Y : " + schem.getOrigin().getY() + " Z : " + schem.getOrigin().getZ());
 		log.info("Offset X : " + schem.getOffset().getX() + " Y : " + schem.getOffset().getY() + " Y : " + schem.getOffset().getZ());	
 	}
-	public CuboidClipboard getClipboard(){ return template;}
+	public CuboidClipboard getTemplate(){ return template;}
 	
-	/**
-	 * 
-	 * @param 	x		X coordinates	
-	 * @param 	y
-	 * @param 	z
-	 * @param 	yaw
-	 * @param 	pitch
-	 */
-	public void setSpawn(float x, float y, float z, int yaw, int pitch){
-		
-	}
-	private String vToString(Vector v){
-		return v.getBlockX() + ";" + v.getBlockY() + ";" + v.getBlockZ();
-	}
-	
-	public String toString(){
-		return 	name + ";" + 
-				templateLoc + ";" + schematicLoc + ";" +
-				vToString(spawnPoint) + ";" +
-				vToString(bounds.getMaximumPoint()) + ";" +
-				vToString(bounds.getMinimumPoint()) + ";" +
-				(isPrepped == true ? "true;" : "false;") + 
-				(beingEdited == true ? "true;" : "false;") +
-				(isReady == true ? "true;" : "false;") + 
-				spawnPitch + ";" + spawnYaw + ";" +
-				vToString(center);
-		
-		
-	}
-	
-	public boolean fromString(String s){
-		if(initialized){
-			InstancedDungeon.getInstance().Log.severe("Dungeon " + name + " is already initialized, but trying to re-initialize with :" + s);
-			return false;
+	public void setSchematic(CuboidClipboard schem){
+		schematic = schem;
+		if(this.state < dungeonState.PREPPED){
+			log.info("Will not set up schematic, data is not past PREPPED state.");
+			return;
 		}
-		String[] a = s.split(";");
-		if(a.length != 20){
-			InstancedDungeon.getInstance().Log.severe("Expected length of 20, got length of " + a.length + " for string : " + s);
-			return false;
-		}
-		name = a[0];
-		templateLoc = a[1];
-		schematicLoc = a[2];
-		spawnPoint = new Vector(Integer.parseInt(a[3]),Integer.parseInt(a[4]),Integer.parseInt(a[5]));
-		Vector pa = new Vector(Integer.parseInt(a[6]),Integer.parseInt(a[7]),Integer.parseInt(a[8]));
-		Vector pb = new Vector(Integer.parseInt(a[9]),Integer.parseInt(a[10]),Integer.parseInt(a[11]));
-		bounds = new CuboidRegion(pa,pb);
-		isPrepped = (a[12] == "true" ? true : false);
-		beingEdited = (a[13] == "true" ? true : false);
-		isReady = (a[14] == "true" ? true : false);
-		spawnPitch = Integer.parseInt(a[15]);
-		spawnYaw = Integer.parseInt(a[16]);
-		center = new Vector(Integer.parseInt(a[17]),Integer.parseInt(a[18]),Integer.parseInt(a[19]));
 		
+		bounds = new CuboidRegion(new Vector(0,0,0),schem.getSize());
+		center = schem.getSize().divide(2);
+				
 		
+	}
+	
+	public CuboidClipboard getSchematic(){return schematic;}
+	
+
+	public void setSpawn(int x, int y, int z, int yaw, int pitch){
+		this.spawnX = x;
+		this.spawnY = y;
+		this.spawnZ = z;
+		this.spawnYaw = yaw;
+		this.spawnPitch = pitch;
+	}
+
+	@Override
+	public boolean synch() {
+		DungeonManager.setTemplate(this);
+		DungeonManager.setSchematic(this);
+		
+		this.synched = true;
 		return true;
+	}
+	
+	public String getStatusDisplay(){
+		String t = "OFFLINE";
+		t = Config.tcol + this.name + "::" + Config.bcol + dungeonState.toString(state) + " :: " +Config.tcol+ " Template : " + (template != null ? "Yes" : "No") + " :: " + Config.bcol + " Schematic : " + (schematic != null ? "Yes" : "No");
+		return t;
 		
 	}
-//    private void loadArea(World world, File file,Vector origin) throws DataException, IOException, MaxChangedBlocksException{
-//        EditSession es = new EditSession(new BukkitWorld(world), 999999999);
-//        CuboidClipboard cc = CuboidClipboard.loadSchematic(file);
-//        cc.paste(es, origin, false);
-//    }
 }

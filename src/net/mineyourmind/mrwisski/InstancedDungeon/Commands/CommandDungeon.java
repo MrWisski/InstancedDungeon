@@ -6,10 +6,13 @@ import java.util.logging.Logger;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 
+import com.sk89q.worldedit.Vector;
+
 import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
 import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData;
+import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData.dungeonState;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonManager;
 
 public class CommandDungeon extends CommandFunctor {
@@ -24,14 +27,17 @@ public class CommandDungeon extends CommandFunctor {
 	}
 	
 	@Override
-	public boolean execute(String[] args, String pName) {
+	public boolean execute(String[] arguments, String pName) {
 		String m = "";
 		ArrayList<String> arg = new ArrayList<String>();
-		for(String s : args){
-			m += s + " "; 
+		int c = 0;
+		for(String s : arguments){
+			m += s + " ";
+			log.info(c + " : " + s);
+			c++;
 			arg.add(s);
 		}
-		log.info("Execute : " + m);
+		log.info("CommandDungeon Execute : " + m);
 		
 		arg.remove(0);	//Remove 'dungeon' from the arguments list.
 		if(arg.isEmpty()){
@@ -43,9 +49,6 @@ public class CommandDungeon extends CommandFunctor {
 			case "create":
 				arg.remove(0);
 				return subCreate(arg);
-			case "define":
-				arg.remove(0);
-				return subDefine(arg);
 			case "prep":
 				break;
 			case "entrance":
@@ -54,6 +57,46 @@ public class CommandDungeon extends CommandFunctor {
 			case "save":
 				return subSave();
 			case "edit":
+				break;
+			case "test":
+				arg.remove(0);
+				log.info("DM message : " + DungeonManager.test(arg.get(0)));
+				message = "Done!";
+				break;
+			case "pasteT":
+				arg.remove(0);
+				if(arg.size() != 4){
+					message = Config.ecol + "Format is <Dungeon Name> <Paste X> <Paste Y> <Paste Z>!";
+				} else {
+					DungeonManager.pasteTemplate(arg.get(0), new Vector(Integer.decode(arg.get(1)),Integer.decode(arg.get(2)),Integer.decode(arg.get(3))));
+					message = DungeonManager.message;
+				}
+				
+				break;
+			case "pasteS":
+				arg.remove(0);
+				
+				if(arg.size() != 4){
+					message = Config.ecol + "Format is <Dungeon Name> <Paste X> <Paste Y> <Paste Z>!";
+				} else {
+					DungeonManager.pasteSchematic(arg.get(0), new Vector(Integer.decode(arg.get(1)),Integer.decode(arg.get(2)),Integer.decode(arg.get(3))));
+					message = DungeonManager.message;
+					
+				}
+				
+				break;
+			case "finalize":
+				arg.remove(0);
+					
+				if(arg.size() != 1){
+					message = Config.ecol + "Format is <Dungeon Name>!";
+					return false;
+				} else {
+					DungeonData d = DungeonManager.getDungeon(arg.get(0));
+					d.state = dungeonState.READY;
+					message = Config.tcol + "Dungeon '" + d.name + "' has been finalized! It is now ready for instancing!";
+				}
+				
 				break;
 			default:
 				log.info("default handler.");
@@ -89,25 +132,12 @@ public class CommandDungeon extends CommandFunctor {
 	}
 	private boolean subCreate(ArrayList<String> arg){
 		log.info("subCreate");
-		if(arg.isEmpty()){
-			message = Config.ecol + "Error - Invalid number of arguments! Command is /" + Config.command + " dungeon create <dungeon name>!";
+		if(arg.size() < 2){
+			message = Config.ecol + "Error - Invalid number of arguments! Command is /" + Config.command + " dungeon create <dungeon name> <schematic template>!";
 			return false;
 		}
-		DungeonData d = DungeonManager.createDungeon(arg.get(0));
-		message = DungeonManager.message;
-		log.info("Message from dungeon Manager : " + message);
-		return (d != null);
-	}
-	
-	private boolean subDefine(ArrayList<String> arg){
-		log.info("subDefine");
-		if(arg.size() != 2){
-			message = Config.ecol + "Error - Invalid number of arguments! Command is /" + Config.command + " dungeon define <dungeon name> <schematic name>!";
-			return false;
-		}
-		DungeonData d = DungeonManager.getDungeon(arg.get(0));
-		if(d == null){
-			message = Config.ecol + "Error - Invalid argument! Dungeon '" + arg.get(0) + "' not found!";
+		if(arg.get(0) == ""){
+			message = Config.ecol + "Error - Invalid argument! Dungeon Name cannot be empty!";
 			return false;
 		}
 		String f = arg.get(1);
@@ -121,13 +151,27 @@ public class CommandDungeon extends CommandFunctor {
 			message = Config.ecol + "Error - Invalid argument! Schematic file not found!";
 			return false;
 		} else {
-			d.setTemplateLoc(f);
-			DungeonManager.setDungeon(d);
-			message = "WorldEdit Schematic '" + f + "' assigned to Dungeon '" + d.getName() +"'!";
-			return true;
+	
 		}
+		DungeonData d = DungeonManager.createDungeon(arg.get(0));
+		if(d == null){
+			message = Config.ecol + " ERROR : Couldn't create dungeon! DungeonManager message : " + DungeonManager.message;
+			return false;
+		}
+		d.templateLoc = f;
+		//Load the schematic into the dungeon - very important!
+		DungeonManager.setTemplate(d);
+		DungeonManager.setDungeon(d);
+		message = DungeonManager.message + "\nWorldEdit Schematic '" + f + "' assigned to Dungeon '" + d.name +"'!";
+		
+		log.info("Prepping dungeon...");
+		DungeonManager.prepDungeon(d.name);
+		log.info("message from DM : " + DungeonManager.message);
+		message = "Created new dungeon '" + d.name + "'!";
+		
+		return true;
 	}
-
+	
 	@Override
 	public String getName() {
 		return "dungeon";
@@ -141,22 +185,22 @@ public class CommandDungeon extends CommandFunctor {
 	@Override
 	public String getFullHelp() {
 		return 	"Allows creation and manipulation of Dungeons.\n\n" +
-				Config.header + Config.bcol + " First, 'create' a new dungeon.\n" +
-				Config.header + Config.bcol + " Next, 'define' the template to use. This is just a filename in worldedit's schematic directory!" + 
-				Config.header + Config.bcol + " Then 'prep' the dungeon - this clears out anything that won't copy (spawners), removes mobs, and constructs a shell around the template." +
-				Config.header + Config.bcol + " Once you 'save' the dungeon, you're ready to start editing!\n\n" +
-				Config.header + Config.bcol + " In 'edit' mode, your actions ";
+				Config.header + Config.bcol + " First, 'create' a new dungeon. This assigns a template that you can edit to personalize each instance.\n" +
+				Config.header + Config.bcol + " Then 'prep' the dungeon - this clears out anything that won't copy (spawners), removes mobs, and constructs a shell around the template. At this point, a Worldedit Schematic of the prepped dungeon will be saved, and further editing will work from this schematic!\n" +
+				Config.header + Config.bcol + " Once you 'save' the dungeon, you're ready to start editing!\n" +
+				Config.header + Config.bcol + " In 'edit' mode, you'll get an edit-instance for your dungeon - its NOT ready for use yet. Stand where you want players to spawn in, and 'setspawn'.\n" +
+				Config.header + Config.bcol + " When you're finished, just 'finalize' the dungeon, and it will be ready to accept instancing!";
 	}
 
 	@Override
 	public String getBriefHelp() {
 		return 	"dungeon " + Config.bcol + "- Shows the dungeon setup help screen.\n" + 
-				Config.header + " dungeon create <dungeon name> " + Config.bcol + "- Create a brand new dungeon.\n" + 
-				Config.header + " dungeon define <dungeon name> <template name> " + Config.bcol + "- Assigns a WorldEdit Schematic to a dungeon. Required before use!\n" +
-				Config.header + " dungeon prep <dungeon name> " + Config.bcol + "- Clears out spawners and mobs, builds the instance walls. Required before use!\n" + 
-				Config.header + " dungeon entrance <dungeon name> " + Config.bcol + "- Sets the Spawn-in area for this dungeon.\n" +
+				Config.header + " dungeon create <dungeon name> <template name>" + Config.bcol + "- Create a brand new dungeon and assigns a WorldEdit Schematic 'template' to a dungeon. Required before prepping!.\n" + 
+				Config.header + " dungeon prep <dungeon name> " + Config.bcol + "- Clears out spawners and mobs, builds the instance walls. Required before editing!\n" + 
+				Config.header + " dungeon entrance <dungeon name> " + Config.bcol + "- Sets the Spawn-in area for this dungeon. Required before readying!\n" +
 				Config.header + " dungeon save <dungeon name> " + Config.bcol + "- Saves out a new WorldEdit schematic, ready for tailoring to your needs! You can find this schematic in /InstancedDungeon/schematics\n" +
-				Config.header + " dungeon edit <dungeon name> " + Config.bcol + "- Spawns in an instance \n";				
+				Config.header + " dungeon edit <dungeon name> " + Config.bcol + "- Spawns in an edit-instance for this dungeon.\n" + 
+				Config.header + " dungeon finalize <dungeon name> " + Config.bcol + "- Finishes Edit mode (if in edit) on a dungeon, and marks it as ready to accept instancing.\n";				
 	}
 
 	@Override
@@ -180,6 +224,6 @@ public class CommandDungeon extends CommandFunctor {
 	@Override
 	public boolean allowConsole() {
 		// TODO Auto-generated method stub
-		return false;
+		return true;
 	}
 }

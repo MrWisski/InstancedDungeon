@@ -7,6 +7,8 @@ package net.mineyourmind.mrwisski.InstancedDungeon.Commands;
  * @version 0.0.1a 17 Jan 2016 - Initial code.
  */
 public abstract class CommandFunctor {
+	public String message = "";
+	
 	/** Executes this specific command.
 	 * 
 	 * @param 	args 	Arguments passed in for command execution

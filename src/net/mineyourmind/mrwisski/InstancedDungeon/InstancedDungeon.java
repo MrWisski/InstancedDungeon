@@ -4,12 +4,12 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
 import java.util.logging.Handler;
 import java.util.logging.Logger;
 
 import com.google.common.io.Files;
-import com.sk89q.worldedit.Location;
-import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import multiworld.MultiWorldPlugin;
@@ -19,12 +19,15 @@ import multiworld.api.MultiWorldWorldData;
 import multiworld.api.PluginType;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.Server;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.HandlerList;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -32,6 +35,7 @@ import net.mineyourmind.mrwisski.InstancedDungeon.Commands.HandleCommand;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.ConfigMan;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonManager;
+import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Util;
 
 /** InstancedDungeon - A Bukkit plugin to add Instanced Dungeons.
@@ -49,7 +53,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 
 	static Config conf = null;
 	
-	private final int CONF_VER = 3;
+	private final int CONF_VER = 4;
 	
 	EventListener eListener = null;
 	HandleCommand cHandler = null;
@@ -113,12 +117,23 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		
 	}
 	
+	@SuppressWarnings("unchecked")
 	private void loadConfig(){
 		Config.debug = pluginConf.getBoolean("plugin.debug",false);
 		Config.enabled = pluginConf.getBoolean("plugin.enabled",false);
 		Config.makeDim = pluginConf.getBoolean("dimension.forceGen",true);
 		Config.dimension = pluginConf.getString("dimension.useDim","idungeon");
 		Config.generator = pluginConf.getString("dimension.useGenerator","Empty");
+		List<String> dbc = pluginConf.getStringList("dungeon.border");
+		Log.info("dbc = " + dbc.toString());
+		for(int x = 0; x < dbc.size(); x++){
+			Material m = Material.getMaterial(dbc.get(x));
+			if(m != null){
+				Config.border = m.toString();
+				this.getLogger().info("Using material '"+m.toString()+"' for instance border - sure hope that's not passable!");
+				break;
+			}
+		}
 	
 	}
 	
@@ -360,7 +375,11 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		if(!DungeonManager.loadDungeons()){
 			getLogger().warning(Config.ecol + "Errors detected reading Dungeons Data - Check the console for errors!");
 		}
-
+		//Load in our instances
+		InstanceManager.getInstance();
+		if(!InstanceManager.loadInstances()){
+			getLogger().warning(Config.ecol + "Errors detected reading Instances Data - Check the console for errors!");
+		}
 	}
 	
 	///////////////////////////////////////////////////////////////////////////////////
@@ -465,6 +484,31 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	@Override
 	public org.bukkit.Location getPlayerLoc(String Player) {
 		return Bukkit.getPlayer(Player).getLocation();
+	}
+
+	@Override
+	public itemInfo getPlayerItemInHand(String Player) {
+		itemInfo i = new itemInfo();
+		ItemStack is = server.getPlayer(Player).getItemInHand();
+		i.material = is.getData().getItemType().toString();
+		i.count = is.getAmount();
+		i.name = is.toString();
+		return i;
+	}
+
+	@Override
+	public File getDataDir() {
+		return this.getDataFolder();
+	}
+
+	@Override
+	public World getIDim() {
+		return iDungeon.getBukkitWorld();
+	}
+
+	@Override
+	public UUID getUUID(String player) {
+		return server.getPlayer(player).getUniqueId();
 	}
 
 }

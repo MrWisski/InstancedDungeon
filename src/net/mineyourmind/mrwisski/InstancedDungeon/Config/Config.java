@@ -22,6 +22,7 @@ public class Config {
 		dimension = "idungeon";
 		generator = "Empty";
 		makeDim = true;
+		border = "BEDROCK";
 		
 		name = "Instanced Dungeon";
 		command = "id";
@@ -29,6 +30,7 @@ public class Config {
 		ecol = "§c";
 		bcol = "§f";
 		header = tcol + "[§4Instanced§8Dungeon"+ tcol + "]";
+		
 	}
 
 //Internal Configuration Options
@@ -49,6 +51,7 @@ public class Config {
 	public static String dimension = "idungeon";
 	public static String generator = "Empty";
 	public static boolean makeDim = true;
+	public static String border = "BEDROCK";
 
 	
 

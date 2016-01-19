@@ -5,18 +5,31 @@ import java.util.Set;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonManager;
+import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceData;
+import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceManager;
 
 public class CommandList extends CommandFunctor {
 	private String message = "No Message.";
 	
+	CommandList(){
+		
+	}
+	
 	@Override
 	public boolean execute(String[] args, String pName) {
-		message = "Dungeons : \n";
+		message = Config.header + " Dungeons : \n";
 		DungeonManager.getInstance();
+		InstanceManager.getInstance();
+		
 		Set<String> k = DungeonManager.getDungeonList();
 		for(String S : k){
-			DungeonData d = DungeonManager.getDungeon(S);
-			message += Config.header + " " + d.getName() + " : " + d.getTemplateLoc();
+			message += Config.header + " " + DungeonManager.getDungeon(S).getStatusDisplay() + "\n";
+		}
+		message += "\n" + Config.header + " Instances : \n";
+		k = InstanceManager.getInstanceList();
+		for(String S : k){
+			InstanceData i = InstanceManager.getInstance(S);
+			message += Config.header + " " + InstanceManager.getInstance(S).getStatusDisplay() + "\n";
 		}
 		return true;
 	}
