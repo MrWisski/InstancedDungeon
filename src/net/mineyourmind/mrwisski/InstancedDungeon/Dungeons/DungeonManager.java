@@ -14,6 +14,10 @@ import java.util.logging.Logger;
 
 import org.apache.commons.lang.StringUtils;
 import org.bukkit.Material;
+import org.primesoft.asyncworldedit.worldedit.AsyncCuboidClipboard;
+import org.primesoft.asyncworldedit.worldedit.AsyncEditSession;
+import org.primesoft.asyncworldedit.worldedit.AsyncEditSessionFactory;
+
 import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.worldedit.CuboidClipboard;
 import com.sk89q.worldedit.EditSession;
@@ -22,29 +26,30 @@ import com.sk89q.worldedit.Vector;
 import com.sk89q.worldedit.blocks.BaseBlock;
 import com.sk89q.worldedit.bukkit.BukkitWorld;
 import com.sk89q.worldedit.data.DataException;
+import com.sk89q.worldedit.regions.CuboidRegion;
+import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.schematic.SchematicFormat;
 
 import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
 import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData.dungeonState;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.RetVal;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.Util;
 
 public class DungeonManager {
 	//A Place to store all our instances of this dungeon.
 	private static HashMap<String, DungeonData> dungeons = new HashMap<String,DungeonData>();
 	public static DungeonManager instance = null;
-	public static Logger log = null;
 	public static FunctionsBridge bridge = null;
-
-	
-	public static String message = "";
 	
 	public static String test(String name){
 		//DungeonData d = dungeons.get(name);
 		/*String s = d.toCSV();
-		log.severe("RESULT : " + s);
+		Log.severe("RESULT : " + s);
 		
-		log.info("Attempting to re-instance");
+		Log.info("Attempting to re-instance");
 		DungeonData d2 = new DungeonData();
 		d2.fromCSV(s);
 		*/
@@ -57,7 +62,6 @@ public class DungeonManager {
 	}
 	
 	protected DungeonManager(){
-		log = InstancedDungeon.getInstance().getLogger();
 		bridge = (FunctionsBridge)InstancedDungeon.getInstance();
 	}
 	
@@ -68,104 +72,174 @@ public class DungeonManager {
 		return instance;		
 	}
 	
-	public static boolean pasteTemplate(String name, Vector where){
-		DungeonData d = DungeonManager.getDungeon(name);
-		if(d == null) return false;
+	public static RetVal pasteTemplate(String name, Vector where){
+		Log.debug("DungeonManager.pasteTemplate - " + name + ", " + Util.vToStr(where));
+		RetVal r = new RetVal();
 		
-		EditSession es = new EditSession(new BukkitWorld(bridge.getIDim()), 999999999);
+		DungeonData d = DungeonManager.getDungeon(name);
+		if(d == null){
+			r.message.add("No Dungeon found : " + name);
+			return r;
+		}
+		
+		EditSession es = bridge.getAsyncEditSession();
+		es.setFastMode(true);
+		
 		File f = bridge.getWEditSchematic(d.templateLoc);
 		CuboidClipboard cc;
 		try {
 			cc = SchematicFormat.MCEDIT.load(f);
 		} catch (IOException | DataException e) {
-			// TODO Auto-generated catch block
+			Log.error("pasteTemplate() : IOException while reading template!");
+			r.IntErr();
 			e.printStackTrace();
-			message = "Internal Server Error. :(";
-			return false;
+			return r;
 		}
 		
 		try {
 			cc.paste(es, where, true);
 		} catch (MaxChangedBlocksException e) {
 			// TODO Auto-generated catch block
-			message = "Too many blocks! try using a smaller schematic!";
+			r.message.add("Too many blocks! Please using a smaller schematic!");
 			e.printStackTrace();
-			return false;
+			return r;
 		}
-		return true;
+		//Force the chunk to load up so worldedit will do the paste.
+		bridge.loadChunk(Config.dimension, where.getBlockX(), where.getBlockY(), where.getBlockZ());
+		r.status = true;
+		return r;
 	}
 	
-	public static boolean pasteSchematic(String name, Vector where){
+	@SuppressWarnings("deprecation")
+	public static RetVal pasteSchematic(String name, Vector where){
+		Log.debug("DungeonManager.pasteSchematic - " + name + ", " + Util.vToStr(where));
+		RetVal r = new RetVal();
+
 		DungeonData d = DungeonManager.getDungeon(name);
-		if(d == null) return false;
+		if(d == null){
+			r.Err("Couldn't find Dungeon '" +name+ "'!");
+			return r;
+		}
 		
-		EditSession es = new EditSession(new BukkitWorld(bridge.getIDim()), 999999999);
-		
-		
+				
+		EditSession es = bridge.getAsyncEditSession();
+		es.setFastMode(true);
+				
 		File f = new File(bridge.getDataDir(),Config.pathToDungeons + d.templateLoc );
 		
 		CuboidClipboard cc;
+		AsyncCuboidClipboard acc;
 		try {
 			cc = SchematicFormat.MCEDIT.load(f);
+			
+			
 		} catch (IOException | DataException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-			message = "Internal Server Error. :(";
-			return false;
+			r.IntErr("Error loading schematic!");
+			return r;
 		}
 		
 		try {
-			cc.paste(es, where, true);
+			acc = new AsyncCuboidClipboard("InstancedDungeons", cc);
+			//acc.paste(arg0, arg1, arg2, arg3);
+			acc.paste(es, where, true);
 		} catch (MaxChangedBlocksException e) {
 			// TODO Auto-generated catch block
-			message = "Too many blocks! try using a smaller schematic!";
+			r.Err("Too many blocks! try using a smaller schematic!");
 			e.printStackTrace();
-			return false;
+			return r;
 		}
-		return true;
+		//Force the chunk to load up so worldedit will do the paste.
+		bridge.loadChunk(Config.dimension, where.getBlockX(), where.getBlockY(), where.getBlockZ());
+		
+		r.status = true;
+		return r;
+	}
+	
+	public static RetVal deleteArea(Vector MinLocation, Vector MaxLocation){
+		Log.debug("DungeonManager.deleteArea");
+		RetVal r = new RetVal();
+		
+		EditSession es = bridge.getAsyncEditSession();
+		es.setFastMode(true);
+		
+		CuboidRegion cr = new CuboidRegion(new BukkitWorld(bridge.getIDim()), MinLocation, MaxLocation);
+		
+		BaseBlock block = new BaseBlock(0);
+		
+		if(es == null || cr == null || block == null){
+			r.IntErr("A value we needed couldn't be determined!");
+			return r;
+		}
+		bridge.loadChunk(Config.dimension, MinLocation.getBlockX(), MinLocation.getBlockY(), MinLocation.getBlockZ());
+		try {
+			es.setBlocks(cr, block);
+		} catch (MaxChangedBlocksException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Log.debug("Cleared area successfully!");
+		r.tru();
+		
+		return r;
 	}
 	
 	public static DungeonData getDungeon(String name){
+		Log.debug("DungeonManager.getDungeon");
+		
 		if(name == null || name == ""){
-			message = Config.ecol + " Cannot create dungeon with a null name!";
+			Log.severe("getDungeon - Cannot get dungeon with a null/empty name!");
 			return null;			
 		}
 		if(!dungeons.containsKey(name)){
-			message = Config.ecol + " Cannot find dungeon '" + name + "' - Did you create it?";
+			Log.warning("Cannot find dungeon '" + name + "' - Did you create it?");
 			return null;
 		}
 
 		return dungeons.get(name);
 	}
 	
-	public static boolean setDungeon(DungeonData dungeon){
+	public static boolean addDungeon(DungeonData dungeon){
+		Log.debug("addDungeon");
 		if(dungeon == null){
-			message = Config.ecol + " Cannot save a null dungeon!";
+			Log.error("Cannot save a null dungeon!");
 			return false;						
 		}
 		dungeons.put(dungeon.name, dungeon);
 		return true;
 	}
 	
-	public static DungeonData createDungeon(String name){
+	public static RetVal createDungeon(String name){
+		Log.debug("DungeonManager.createDungeon");
+		RetVal r = new RetVal();
+		
 		if(name == null || name == ""){
-			message = Config.ecol + " Cannot create dungeon with a null name!";
-			return null;			
+			r.Err("Cannot create dungeon with no name!");
+			return r;			
 		}
 		if(dungeons.containsKey(name)){
-			message = Config.ecol + " Cannot create dungeon '" + name + "' - Dungeon already exists!";
-			return null;
+			r.Err("Cannot create dungeon '" + name + "' - Dungeon already exists!");
+			return r;
 		}
 		DungeonData dungeon = new DungeonData(name);
-		setDungeon(dungeon);
-		return dungeon;
+		if(addDungeon(dungeon)){
+			r.add("Created Dungeon '" +name+ "'!");
+			r.status = true;
+		} else {
+			r.Err("Failed to create Dungeon '"+name+"'!");
+		}
+		return r;
 	}
 	
 	//Reloads the clipboard selection - only use this during initial load!
-	public static boolean setTemplate(DungeonData d){
+	public static RetVal setTemplate(DungeonData d){
+		Log.debug("DungeonManager.setTemplate");
+		RetVal r = new RetVal();
+		
 		if(d == null){
-			log.info("can't set template on a null dungeon!");
-			return false;
+			Log.severe("setTemplate - Can't set template on a null dungeon!");
+			r.IntErr();
+			return r;
 		}
 		//If we're not already prepared
 		if(d.templateLoc != ""){
@@ -173,74 +247,88 @@ public class DungeonManager {
 				d.setTemplate(SchematicFormat.MCEDIT.load(bridge.getWEditSchematic(d.templateLoc)));
 			} catch (DataException | IOException e) {
 				e.printStackTrace();
-				return false;
+				r.IntErr();
+				return r;
 			}
 		} else {
-			log.warning("Tried to setTemplate on a dungeon without a template loc - This dungeon is probably in an Invalid state!");
+			Log.warning("Tried to setTemplate on a dungeon without a template loc - This dungeon is probably corrupted!");
+			r.Err("Dungeon '"+d.name+"' does not have a template set! This dungeon might be corrupted!");
+			return r;
 		}
-		return true;
+		
+		r.status = true;
+		return r;
 	}
 	
-	public static boolean setSchematic(DungeonData d){
+	public static RetVal setSchematic(DungeonData d){
+		Log.debug("DungeonManager.setSchematic");
+		RetVal r = new RetVal();
+		
 		if(d == null){
-			log.info("can't set template on a null dungeon!");
-			return false;
+			Log.severe("setSchematic was passed null for DungeonData!");
+			r.Err("Cannot set the schematic for a null dungeon!");
+			return r;
 		}
 		//If we're not already prepared
 		if(d.schematicLoc != ""){
 			try {
 				d.setSchematic(SchematicFormat.MCEDIT.load(new File(bridge.getDataDir(),Config.pathToDungeons + d.schematicLoc )));
 			} catch (DataException | IOException e) {
+				r.IntErr("Error reading schematic from disk!");
 				e.printStackTrace();
-				return false;
+				return r;
 			}
 		}
-		return true;
+		r.status = true;
+		return r;
 	}
 	
 	
 	public static void printNBT(Vector Location, CompoundTag tag){
-		
+	
 		String indentSpace = StringUtils.repeat(" ", 4);
 		if(tag != null){
-			log.info(Location.toString() + " : " + tag.getName());
+			Log.info(Location.toString() + " : " + tag.getName());
 		
 			for(String sss : tag.getValue().keySet()){
-				log.info(indentSpace + sss + " = " + tag.getValue().get(sss).getValue());
+				Log.info(indentSpace + sss + " = " + tag.getValue().get(sss).getValue());
 				
 			}
 		}
 	}
 	
 	@SuppressWarnings("deprecation")
-	public static boolean prepDungeon(String name){
-		log.info("Preparing dungeon " + name);
+	public static RetVal prepDungeon(String name){
+		Log.debug("DungeonManager.prepDungeon");
+		RetVal r = new RetVal();
+		
 		DungeonData d = getDungeon(name);
 		if(d == null){
-			log.info("No dungeon!");
+			Log.debug("Cannot prep '"+name+"' - Dungeon not found!");
+			r.Err("Cannot prep '"+name+"' - Dungeon not found!");
 			// let the getDungeon error message stand.
-			return false;
+			return r;
 		}
 		
 		if(d.state >= dungeonState.READY){
-			message = Config.ecol + " This dungeon is already ready already! Please RESET to a non-READY state!";
-			log.info("Dungeon is ready! can't prep!");
-			return false;
+			r.Err("This dungeon is already in a READY state!");
+			Log.info("Dungeon '"+name+"' is ready! This dungeon is already prepared!");
+			return r;
 		}
 		//Grab our clipboard region - we'll need it shortly.
 		CuboidClipboard t = d.getTemplate();
 		if(t == null){
-			log.info("Trying to prep a dungeon without a template set - attempting to set template!");
+			Log.info("Trying to prep dungeon '"+name+"' without a template set - attempting to set template!");
 			DungeonManager.setTemplate(d);
 			t = d.getTemplate();
 			if(t == null){
-				log.info("Couldn't get the template! This dungeon is likely in an INVALID state!");
-				message = Config.ecol + " Error getting template schematic - Dungeon is likely invalid!";
-				return false;
+				Log.error("Couldn't get the template for dungeon '" + name+ "'! This dungeon is likely in an INVALID state!");
+				r.message.add(Config.ecol + " Error getting template schematic - Dungeon is likely invalid!");
+				return r;
 			}
 		}
 		
-		log.info("BEGINNING PREP : "+t.getWidth()+","+t.getHeight()+","+t.getLength()+"!");
+		Log.debug("BEGINNING PREP : "+t.getWidth()+","+t.getHeight()+","+t.getLength()+"!");
 		t.setOffset(new Vector(0,0,0));
 		t.setOrigin(new Vector(0,0,0));
 		
@@ -257,14 +345,14 @@ public class DungeonManager {
 					//CompoundTag tag = b.getNbtData();
 					/*
 					if(tag != null){
-						log.info("NBT for block " + m.name() + " : ");
+						Log.info("NBT for block " + m.name() + " : ");
 						printNBT(v,tag);
 					}
 					LocalEntity[] l = t.pasteEntities(new Vector(x,y,z));
 					if(l.length != 0){
-						log.info("Got entities : ");
+						Log.info("Got entities : ");
 						for(LocalEntity e : l){
-							log.info(e.toString());
+							Log.info(e.toString());
 						}
 					}
 					*/
@@ -283,14 +371,15 @@ public class DungeonManager {
 			SchematicFormat.MCEDIT.save(t, f);
 		} catch (IOException | DataException e) {
 			e.printStackTrace();
-			message = Config.ecol + "Error : Failed to write Schematic! See console for more details!";
-			return false;
+			r.IntErr("Failed to save prepared Schematic!");
+			return r;
 		}
 		d.schematicLoc = d.templateLoc;
 		d.state = dungeonState.PREPPED;
 		DungeonManager.setSchematic(d);
-			
-		return true;
+		r.message.add("Successfully prepared Dungeon : " +Config.bcol + name);
+		r.status = true;
+		return r;
 		
 	}
 	
@@ -298,15 +387,20 @@ public class DungeonManager {
 		return dungeons.keySet();
 	}
 	
-	public static boolean saveDungeons(){
-		log.info("saveDungeons");
+	public static RetVal saveDungeons(){
+		Log.debug("DungeonManager.saveDungeons");
+		RetVal r = new RetVal();
+		
 		if(dungeons.isEmpty()){
-			log.info("No data to save - Nothing to do!");
-			return true;
+			Log.debug("No data to save - Nothing to do!");
+			r.add("No data to save - Nothing to do!");
+			r.status = true;
+			return r;
 		}
 		
 		File f = new File(bridge.getDataDir(),Config.pathToDungeons + "dungeons.csv");
 		if(!f.getParentFile().exists()){
+			Log.debug("Creating path : " + f.getParent());
 			f.getParentFile().mkdirs();
 		}
 		
@@ -317,7 +411,7 @@ public class DungeonManager {
 		}
 		
 
-
+		int c = 0;
 		try (BufferedWriter bw = new BufferedWriter(new FileWriter(f))) {
 		    Collection<DungeonData> d = dungeons.values();
 		    
@@ -325,20 +419,29 @@ public class DungeonManager {
 		    	String s = dat.toCSV();
 		    	bw.write(s);
 		    	bw.newLine();
+		    	c++;
 		    	
 		    }
-		    return true;
+		    r.add("Read in " + c + " dungeons!");
+		    r.status = true;
+		    return r;
 		} catch (FileNotFoundException e) {
-			message = "No Dungeons found!";
-			
+			Log.debug("Couldn't find file : " + f.getPath());
+			r.add("No Dungeons found!");
+			return r;
 		} catch (IOException e) {
-			message = Config.ecol + " Error : IOException writing data!";
+			
+			r.add(Config.ecol + " Error : IOException writing data!");
 			e.printStackTrace();
+			return r;
 		}
-		return false;
 	}
 	
-	public static boolean loadDungeons(){
+	public static RetVal loadDungeons(){
+		Log.debug("DungeonManager.loadDungeons");
+		RetVal r = new RetVal();
+		
+
 		String fp = InstancedDungeon.getInstance().getDataFolder().toString() + Config.pathToDungeons + "dungeons.csv";
 		File f = new File(fp);
 		if(!f.getParentFile().exists()){
@@ -348,7 +451,8 @@ public class DungeonManager {
 		try {
 			if(f.createNewFile()){
 				//If the file doesn't exist, and we just created it, then there's really no error.
-				return true;
+				r.add("Created new Dungeon storage file!");
+				r.status = true;
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -359,22 +463,27 @@ public class DungeonManager {
 			String line;
 			while ((line = br.readLine()) != null) {
 				DungeonData d = new DungeonData();
+				if(line == "") continue;
+				
 				if(d.fromCSV(line)){
 					d.synch();
-					log.info("Loaded Dungeon '" + d.name + "'");
+					Log.debug("Loaded Dungeon '" + d.name + "'");
+					r.add("Loaded Dungeon '" + d.name + "'");
 					dungeons.put(d.name, d);
 				} else {
-					log.severe("Failed to load dungeon : " + line);
+					Log.severe("Failed to load dungeon : " + line);
+					r.IntErr("Failed to load a dungeon!");
 				}
-				return true;
 			}
 		} catch (FileNotFoundException e) {
-			message = "No Dungeons found!";
-			
+			r.IntErr("Dungeons file not found!");
+			return r;
 		} catch (IOException e) {
-			message = Config.ecol + " Error : IOException reading data!";
+			r.IntErr("Error reading data!");
 			e.printStackTrace();
 		}
-		return false;
+		r.add("Loaded all Dungeons!");
+		return r;
+
 	}
 }

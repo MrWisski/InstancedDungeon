@@ -11,6 +11,8 @@ import java.util.logging.Logger;
 
 import org.apache.commons.lang.time.DurationFormatUtils;
 
+import com.sk89q.worldedit.Vector;
+
 import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 
 //Please only put server-agnostic functions here.
@@ -60,79 +62,29 @@ public class Util {
 		
 	}
 	
-	public static boolean canAccess(Field F){
-		Logger l = InstancedDungeon.instance.getLogger();
-		int m = F.getModifiers();
-		l.info("Checking Modifiers : '" + F.getName() + "'");
+	public static String vToStr(Vector V){
+		return V.getBlockX() + "," + V.getBlockY() + "," + V.getBlockZ();
+	}
+	
+	public static Vector regionToBlock(Vector coords){
+		int blockX = (int)Math.floor((coords.getBlockX() * 16) * 32.0);
+		int blockZ = (int)Math.floor((coords.getBlockZ() * 16) * 32.0);
+		return new Vector(blockX,0,blockZ);
+	}
+	
+	public static Vector blockToRegion(Vector coords){
+		int regionX = (int)Math.floor((coords.getBlockX() / 16) / 32.0);
+		int regionZ = (int)Math.floor((coords.getBlockZ() / 16) / 32.0);
+		return new Vector(regionX,0,regionZ);
+	}
+	
+	public static ArrayList<String> argsToList(String[] arguments){
+		ArrayList<String> arg = new ArrayList<String>();
+		for(String s : arguments){
+			arg.add(s);
+		}
 		
-			return false;
+		return arg;
+	}
 
-	}
-	
-	public static String toCSV(Object o){
-		Logger l = InstancedDungeon.instance.getLogger();
-		String out = "";
-		for (Field field : o.getClass().getDeclaredFields()) {
-			l.info("Examining field " + field.getName());
-			try {
-				int m = field.getModifiers();
-				if(Modifier.isPrivate(m) || Modifier.isProtected(m) || Modifier.isStatic(m)){
-					//String so = field.getName() + ";" + field.getType().getName() + ";" + field.get(o).toString() + ";*@*;";
-					//l.info("Added : " + so);
-					//out += so;
-					l.info("Think i can access this.");
-				} else {
-					l.info("Ignoring - shouldn't touch this.");
-				}
-			} catch (IllegalArgumentException e) {
-				l.severe("Failed to serialize object!");
-				e.printStackTrace();
-				return null;
-			}
-        }
-		
-		return out;
-	}
-	
-	public static void fromCSV(String s, Object to){
-		String[] fstr = s.split(";*@*;");
-		try{
-		for(String sub : fstr){
-			String[] fieldstr = sub.split(";");
-			Field field = to.getClass().getDeclaredField(fieldstr[0]);
-			Class<?> rClass = field.getType();
-			//Don't try to de-serialize inaccessible fields.
-			if(to.getClass().getDeclaredField(fieldstr[0]).isAccessible() == false){
-				continue;
-			}
-			if (rClass == String.class) {
-				field.set(to, fieldstr[3]);
-			} else if (rClass == int.class) {
-				field.set(to, Integer.parseInt(fieldstr[3]));
-			} else if (rClass == boolean.class) {
-				field.set(to, Boolean.parseBoolean(fieldstr[3]));
-			} else if (rClass == float.class) {
-				field.set(to, Float.parseFloat(fieldstr[3]));
-			} else if (rClass == long.class) {
-				field.set(to, Long.parseLong(fieldstr[3]));
-			} else if (rClass == short.class) {
-				field.set(to, Short.parseShort(fieldstr[3]));
-			} else if (rClass == double.class) {
-				field.set(to, Double.parseDouble(fieldstr[3]));
-			} else if (rClass == byte.class) {
-				field.set(to, Byte.parseByte(fieldstr[3]));
-			} else if (rClass == char.class) {
-				field.set(to, fieldstr[3].charAt(0));
-			} else {
-				InstancedDungeon.instance.getLogger().severe("Failed to de-serialize " + rClass.getSimpleName() + " object!");
-			}
-		}
-		} catch(IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
-			InstancedDungeon.instance.getLogger().severe("Failed to de-serialize object " + to.getClass().getName());
-			to = null;
-			e.printStackTrace();
-			
-		}
-		
-	}
 }

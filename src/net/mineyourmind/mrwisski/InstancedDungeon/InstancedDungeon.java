@@ -3,6 +3,7 @@ package net.mineyourmind.mrwisski.InstancedDungeon;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -10,6 +11,10 @@ import java.util.logging.Handler;
 import java.util.logging.Logger;
 
 import com.google.common.io.Files;
+import com.sk89q.worldedit.EditSession;
+import com.sk89q.worldedit.LocalWorld;
+import com.sk89q.worldedit.Vector;
+import com.sk89q.worldedit.bukkit.BukkitWorld;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import multiworld.MultiWorldPlugin;
@@ -19,23 +24,30 @@ import multiworld.api.MultiWorldWorldData;
 import multiworld.api.PluginType;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Server;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.primesoft.asyncworldedit.PluginMain;
+import org.primesoft.asyncworldedit.worldedit.AsyncEditSession;
+import org.primesoft.asyncworldedit.worldedit.AsyncEditSessionFactory;
 
 import net.mineyourmind.mrwisski.InstancedDungeon.Commands.HandleCommand;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.ConfigMan;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceManager;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Util;
 
 /** InstancedDungeon - A Bukkit plugin to add Instanced Dungeons.
@@ -62,6 +74,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	public WorldGuardPlugin worldGuard = null;
 	public MultiWorldPlugin mw = null;
 	public MultiWorldAPI mwAPI = null;
+	public PluginMain awe = null;
 	
 	MultiWorldWorldData iDungeon = null;
 	
@@ -80,11 +93,11 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	
 	//Some more nice statics to have around.
 	public static Server server;
-	public static Logger Log;
 	
 	/**Internal function for initializing the configuration files, including version checking. */
 	private void initConfig(){
 		conf = Config.getInstance();
+		
 		//This is just to initialize the path, and default config, IF NEEDS BE!
 		//createConfigPath does nothing if the files already exist!
 		File configPath = getDataFolder();
@@ -98,7 +111,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		ConfigMan.createConfigPath(configFile, configPath,conf,this);
 		
 		//Set up the plugin's ConfigManager config file.
-		this.myConfFile = new ConfigMan(configFile,getLogger());
+		this.myConfFile = new ConfigMan(configFile);
 		
 		//Attempt to read in the config on disk.
 		if(myConfFile.loadConfig()){
@@ -110,14 +123,13 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 			}
 			
 		} else {
-			getLogger().warning("Warning : Failed to load config? This is almost certainly very, very bad.");
+			Log.warning("Warning : Failed to load config? This is almost certainly very, very bad.");
 		}
 		
 		
 		
 	}
 	
-	@SuppressWarnings("unchecked")
 	private void loadConfig(){
 		Config.debug = pluginConf.getBoolean("plugin.debug",false);
 		Config.enabled = pluginConf.getBoolean("plugin.enabled",false);
@@ -130,7 +142,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 			Material m = Material.getMaterial(dbc.get(x));
 			if(m != null){
 				Config.border = m.toString();
-				this.getLogger().info("Using material '"+m.toString()+"' for instance border - sure hope that's not passable!");
+				Log.info("Using material '"+m.toString()+"' for instance border - sure hope that's not passable!");
 				break;
 			}
 		}
@@ -144,14 +156,14 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	    	if(mWorld instanceof MultiWorldPlugin){
 	    		this.mw = (MultiWorldPlugin)mWorld;
 	    		this.mwAPI = ((MultiWorldPlugin)mWorld).getApi();
-	    		getLogger().info("Found MultiWorld (" + mWorld.getDescription().getVersion() + ") plugin!");
+	    		Log.info("Found MultiWorld (" + mWorld.getDescription().getVersion() + ") plugin!");
 	    	} else {
-	    		getLogger().warning("Could not find MultiWorld v5.2.4 - This plugin is a REQUIRED DEPENDENCY!");
+	    		Log.warning("Could not find MultiWorld v5.2.4 - This plugin is a REQUIRED DEPENDENCY!");
 	    		return false;
 	    	}
 	    } catch (Exception e) {
-	    	getLogger().severe("Caught exception establishing WorldEdit services : ");
-	    	getLogger().severe(e.getMessage());
+	    	Log.severe("Caught exception establishing WorldEdit services : ");
+	    	Log.severe(e.getMessage());
 	    	e.printStackTrace();
 	    }
 		
@@ -159,14 +171,14 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	    	Plugin wEdit = this.getServer().getPluginManager().getPlugin("WorldEdit");
 	    	if(wEdit instanceof WorldEditPlugin){
 	    		this.worldEdit = (WorldEditPlugin)wEdit;
-	    		getLogger().info("Found WorldEdit (" + wEdit.getDescription().getVersion() + ") plugin!");
+	    		Log.info("Found WorldEdit (" + wEdit.getDescription().getVersion() + ") plugin!");
 	    	} else {
-	    		getLogger().warning("Could not find WorldEdit 5.6.3 - This plugin is a REQUIRED DEPENDENCY!");
+	    		Log.warning("Could not find WorldEdit 5.6.3 - This plugin is a REQUIRED DEPENDENCY!");
 	    		return false;
 	    	}
 	    } catch (Exception e) {
-	    	getLogger().severe("Caught exception establishing WorldEdit services : ");
-	    	getLogger().severe(e.getMessage());
+	    	Log.severe("Caught exception establishing WorldEdit services : ");
+	    	Log.severe(e.getMessage());
 	    	e.printStackTrace();
 	    }
 	    
@@ -174,14 +186,29 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	    	Plugin wGuard = this.getServer().getPluginManager().getPlugin("WorldGuard");
 	    	if(wGuard instanceof WorldGuardPlugin){
 	    		this.worldGuard = (WorldGuardPlugin)wGuard;
-	    		getLogger().info("Found WorldGuard (" + wGuard.getDescription().getVersion() + ") plugin!");
+	    		Log.info("Found WorldGuard (" + wGuard.getDescription().getVersion() + ") plugin!");
 	    	} else {
-	    		getLogger().warning("Could not find WorldGuard 5.9 - This plugin is a REQUIRED DEPENDENCY!");
+	    		Log.warning("Could not find WorldGuard 5.9 - This plugin is a REQUIRED DEPENDENCY!");
 	    		return false;
 	    	}
 	    } catch (Exception e) {
-	    	getLogger().severe("Caught exception establishing WorldGuard services : ");
-	    	getLogger().severe(e.getMessage());
+	    	Log.severe("Caught exception establishing WorldGuard services : ");
+	    	Log.severe(e.getMessage());
+	    	e.printStackTrace();
+	    }
+	    
+	    try {
+	    	Plugin pm = this.getServer().getPluginManager().getPlugin("AsyncWorldEdit");
+	    	if(pm instanceof PluginMain){
+	    		this.awe = (PluginMain)pm;
+	    		Log.info("Found AsynchWorldEdit ("+awe.getDescription().getVersion()+") plugin!");
+	    	} else {
+	    		Log.severe("Could not find AsynchWorldEdit 1.3 - This plugin is a REQUIRED DEPENDENCY!");
+	    		return false;
+	    	}
+	    } catch(Exception e) {
+	    	Log.severe("Caught exception establishing WorldGuard services : ");
+	    	Log.severe(e.getMessage());
 	    	e.printStackTrace();
 	    }
 	    
@@ -210,9 +237,6 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		//Stash the server!
 		server = getServer();
 				
-		//Setup the log
-		Log = getLogger();
-		
 		//Load our config!
 		this.loadConfig();
 		
@@ -221,7 +245,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 			this.enabled = true;
 		} else {
 			this.enabled = false;
-			getLogger().info("Plugin disabled via config!");
+			Log.info("Plugin disabled via config!");
 			return;
 		}
 
@@ -256,34 +280,34 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		
 		switch(this.serverVersion){
 		case ONE_SIX_FOUR :
-			getLogger().info("Server version detected as 1.6.4");
+			Log.info("Server version detected as 1.6.4");
 			break;
 		case ONE_SEVEN_TEN :
-			getLogger().info("Server version detected as 1.7.10");
+			Log.info("Server version detected as 1.7.10");
 			break;
 		case ONE_EIGHT :
-			getLogger().info("Server version detected as 1.8");
+			Log.info("Server version detected as 1.8");
 			break;
 		case ONE_EIGHT_ONE :
-			getLogger().info("Server version detected as 1.8.1");
+			Log.info("Server version detected as 1.8.1");
 			break;
 		case ONE_EIGHT_TWO :
-			getLogger().info("Server version detected as 1.8.2");
+			Log.info("Server version detected as 1.8.2");
 			break;
 		case ONE_EIGHT_THREE :
-			getLogger().info("Server version detected as 1.8.3");
+			Log.info("Server version detected as 1.8.3");
 			break;
 		case ONE_EIGHT_FOUR :
-			getLogger().info("Server version detected as 1.8.4");
+			Log.info("Server version detected as 1.8.4");
 			break;
 		case UNKNOWN :
-			getLogger().info("Server version failed detection.");
+			Log.info("Server version failed detection.");
 			break;
 			
 		}
 		
 		if(!this.loadDepends()){
-			getLogger().severe("A required dependency was NOT found. Please install this plugin and restart your server!");
+			Log.severe("A required dependency was NOT found. Please install this plugin and restart your server!");
 			this.enabled = false;
 			Config.enabled = false;
 			return;
@@ -306,7 +330,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	        }
 	    });
 		
-		getLogger().info("Plugin enabled successfully!");
+		Log.info("Plugin enabled successfully!");
 	}
  
 	/** Handles a request from the Bukkit server to disable the plugin - Server is generally
@@ -324,7 +348,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		this.unRegisterBukkitCommand(c);
 		this.cHandler = null;
 		
-		getLogger().info("Plugin disabled successfully!");
+		Log.info("Plugin disabled successfully!");
 	}
 		
 	public void onStart(){
@@ -343,8 +367,8 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 								mw.getApi().saveConfig();
 								Log.info("Dimension " + Config.dimension + " was successfully created!");
 							} else {
-								Log.severe("Failed to load " + Config.dimension + " after creation!");
-								Log.severe("Please run /mw load " + Config.dimension);
+								Log.warning("Failed to load " + Config.dimension + " after creation!");
+								Log.warning("Please run /mw load " + Config.dimension);
 							}
 						} catch (ConfigurationSaveException e) {
 							// TODO Auto-generated catch block
@@ -352,8 +376,8 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 						}
 					}
 				} else {
-					Log.severe("We tried to create dimension " + Config.dimension + " but something went wrong.");
-					Log.severe("Please run /mw create " + Config.dimension + " " + Config.generator);
+					Log.error("Tried to create dimension " + Config.dimension + " but something went wrong.");
+					Log.error("Please run /mw create " + Config.dimension + " " + Config.generator);
 				}
 			} else {
 				Log.info("iDungeon Dimension not found : Please run /mw create " + Config.dimension + " " + Config.generator);
@@ -364,21 +388,23 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 			if(iDungeon.isLoaded()){
 				Log.info("Dimension is loaded!");
 			} else {
-				Log.severe("Please edit your server config files to auto-load, and keep loaded, the " + Config.dimension + " dimension!");
+				Log.error("Please edit your server config files to auto-load, and keep loaded, the " + Config.dimension + " dimension!");
 			}
 
 		}
 		
+		MCEditExtendedSchematicFormat mcee = new MCEditExtendedSchematicFormat();
+		
 		//Load in our dungeons - Since we depend on WorldEdit to be fully loaded,
 		//We're doing this here, once the server comes up.
 		DungeonManager.getInstance();
-		if(!DungeonManager.loadDungeons()){
-			getLogger().warning(Config.ecol + "Errors detected reading Dungeons Data - Check the console for errors!");
+		if(DungeonManager.loadDungeons().status){
+			Log.warning("Errors detected reading Dungeons Data - Check the console for errors!");
 		}
 		//Load in our instances
 		InstanceManager.getInstance();
-		if(!InstanceManager.loadInstances()){
-			getLogger().warning(Config.ecol + "Errors detected reading Instances Data - Check the console for errors!");
+		if(InstanceManager.loadInstances().status){
+			Log.warning("Errors detected reading Instances Data - Check the console for errors!");
 		}
 	}
 	
@@ -398,12 +424,12 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	
 	/** Helper function for handling config version mismatches. */
 	private void replaceConfig(){
-		getLogger().severe("**********************************************\n");
-		getLogger().severe("Configuration file version mismatch detected!\n"  );
-		getLogger().severe("Backing up current config, and replacing!\n" ); 
-		getLogger().severe("Plugin will be disabled! Review plugin config");
-		getLogger().severe("and re-enable!");
-		getLogger().severe("**********************************************\n");
+		Log.severe("**********************************************\n");
+		Log.severe("Configuration file version mismatch detected!\n"  );
+		Log.severe("Backing up current config, and replacing!\n" ); 
+		Log.severe("Plugin will be disabled! Review plugin config");
+		Log.severe("and re-enable!");
+		Log.severe("**********************************************\n");
 		File configPath = getDataFolder();
 		File configFile = new File(configPath, "config.yml");
 		File configBackup = new File(configPath, "config.old");
@@ -424,7 +450,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		ConfigMan.createConfigPath(configFile, configPath,conf,this);
 
 		//Set up the plugin's ConfigManager config file.
-		this.myConfFile = new ConfigMan(configFile,getLogger());
+		this.myConfFile = new ConfigMan(configFile);
 
 		//Attempt to read in the config on disk.
 		if(myConfFile.loadConfig()){
@@ -482,8 +508,12 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	}
 
 	@Override
-	public org.bukkit.Location getPlayerLoc(String Player) {
-		return Bukkit.getPlayer(Player).getLocation();
+	public com.sk89q.worldedit.Location getPlayerLoc(String Player) {
+		org.bukkit.Location locB = server.getPlayer(Player).getLocation();
+		
+		Vector V = new Vector(locB.getX(), locB.getY(), locB.getZ());
+		
+		return new com.sk89q.worldedit.Location(new BukkitWorld(server.getPlayer(Player).getWorld()),V);
 	}
 
 	@Override
@@ -508,7 +538,80 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 
 	@Override
 	public UUID getUUID(String player) {
-		return server.getPlayer(player).getUniqueId();
+		if(server.getPlayer(player) == null){
+			return server.getOfflinePlayer(player).getPlayer().getUniqueId();
+		} else {
+			return server.getPlayer(player).getUniqueId(); 
+		}
 	}
+
+	@Override
+	public Player getPlayer(String Player) {
+		return server.getPlayer(Player);
+	}
+
+	@Override
+	public void tpPlayerSimple(String Player, String dim, int x, int y, int z) {
+		Location l = new Location(mw.getApi().getWorld(Config.dimension).getBukkitWorld(), x, y, z);
+		
+		getPlayer(Player).teleport(l);
+		
+	}
+
+	@Override
+	public void tpPlayer(String Player, String dim, int x, int y, int z, float yaw, float pitch) {
+		Location l = new Location(mw.getApi().getWorld(Config.dimension).getBukkitWorld(), x, y, z, yaw, pitch);
+		
+		getPlayer(Player).teleport(l);
+		
+	}
+
+	@SuppressWarnings("deprecation")
+	@Override
+	public boolean loadChunk(String world, int x, int y, int z) {
+		World w = mw.getApi().getWorld(Config.dimension).getBukkitWorld();
+		org.bukkit.Location block_loc = new org.bukkit.Location(w, x, y-1 , z);
+		Block b = w.getBlockAt(block_loc);
+		b.getTypeId();
+		return b != null;
+	}
+
+	@Override
+	public HashMap<com.sk89q.worldedit.Location, String> getAllPlayerLocs(String world) {
+		HashMap<com.sk89q.worldedit.Location, String> ll = new HashMap<com.sk89q.worldedit.Location, String>();
+		
+		for(Player P : server.getOnlinePlayers()){
+			Location locB = P.getLocation();
+			Vector V = new Vector(locB.getX(), locB.getY(), locB.getZ());
+			BukkitWorld W = new BukkitWorld(P.getWorld());
+			
+			com.sk89q.worldedit.Location locW = new com.sk89q.worldedit.Location(W,V);
+			
+			ll.put(locW, P.getName());
+		}
+		return ll;
+	}
+
+	@Override
+	public void tpPlayerToSpawn(String Player, String Reason) {
+		World w = server.getWorlds().get(0);
+		Location spawn = w.getSpawnLocation();
+		Player P = getPlayer(Player);
+		P.sendMessage(Reason);
+		P.teleport(spawn);	
+	}
+	
+	public EditSession getAsyncEditSession(){
+		AsyncEditSession aes = null;
+		
+		AsyncEditSessionFactory aesf = new AsyncEditSessionFactory(awe);
+		BukkitWorld W = new BukkitWorld(mw.getApi().getWorld(Config.dimension).getBukkitWorld());
+		aes = (AsyncEditSession)aesf.getEditSession(W, 999999999);
+		aes.setFastMode(true);
+		aes.setAsyncForced(true);
+		
+		return aes;
+	}
+	
 
 }

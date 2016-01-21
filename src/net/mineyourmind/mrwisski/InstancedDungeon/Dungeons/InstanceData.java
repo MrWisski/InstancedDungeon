@@ -9,6 +9,8 @@ import com.sk89q.worldguard.protection.regions.ProtectedCuboidRegion;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData.dungeonState;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.CSVable;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.Util;
 
 public class InstanceData extends CSVable{
 	public final static class instanceState {
@@ -17,8 +19,7 @@ public class InstanceData extends CSVable{
 		public final static int WAITING = 1;
 		public final static int READY = 2;
 		public final static int EDIT = 3;
-		public final static int IN_USE = 4;
-		public final static int RELEASED = 5;
+		public final static int RELEASED = 4;
 		
 		public final static String toString(int v){
 			switch(v){
@@ -26,8 +27,7 @@ public class InstanceData extends CSVable{
 			case 1: return "WAITING";
 			case 2: return "READY";
 			case 3: return "EDIT";
-			case 4: return "IN_USE";
-			case 5: return "RELEASED";
+			case 4: return "RELEASED";
 			default: return "INVALID";
 			}
 		}
@@ -72,6 +72,7 @@ public class InstanceData extends CSVable{
 	
 	
 	//Owners UUID
+	String owneruuid = "";
 	private UUID uuid = null;
 	public UUID getUUID(){return uuid;}
 	
@@ -83,25 +84,27 @@ public class InstanceData extends CSVable{
 	}
 	
 	public InstanceData(String name, String owner, UUID uuid, String dungeon, Vector loc, boolean edit){
+		Log.debug("InstanceData()");
 		this.name = name;
 		
 		this.owner = owner;
+		this.owneruuid = uuid.toString();
 		this.uuid = uuid;
 				
 		this.dungeonName = dungeon;
 		this.dungeon = DungeonManager.getDungeon(dungeon);
 		if(this.dungeon == null){
-			log.severe("Cannot create instance! Dungeon '" + dungeon + "' not found!");
+			Log.severe("Cannot create instance! Dungeon '" + dungeon + "' not found!");
 			this.state = instanceState.INVALID;
 			return;
 		}
 		
 		if(this.dungeon.getSchematic() == null){
-			log.info("Schematic isn't loaded - attempting to set!");
+			Log.info("Schematic isn't loaded - attempting to set!");
 			DungeonManager.setSchematic(this.dungeon);
 			if(this.dungeon.getSchematic() == null){
-				log.severe("Couldn't get Dungeon Schematic! DM : " + DungeonManager.message);
-				log.severe(this.dungeon.getStatusDisplay());
+				Log.severe("Couldn't get Dungeon Schematic!");
+				Log.severe(this.dungeon.getStatusDisplay());
 				
 			}
 			
@@ -114,7 +117,7 @@ public class InstanceData extends CSVable{
 		this.Y = loc.getBlockY();
 		this.Z = loc.getBlockZ();
 		
-		this.rOrigin = InstanceManager.blockToRegion(loc);
+		this.rOrigin = Util.blockToRegion(loc);
 		this.RX = rOrigin.getBlockX();
 		this.RZ = rOrigin.getBlockZ();
 		
@@ -128,11 +131,12 @@ public class InstanceData extends CSVable{
 
 	@Override
 	public boolean synch() {
+		Log.debug("InstanceData.synch");
 		if(dungeonName != ""){
-			this.uuid = UUID.fromString(dungeonName);
+			this.uuid = UUID.fromString(owneruuid);
 			this.dungeon = DungeonManager.getDungeon(this.dungeonName);
 			if(dungeon == null){
-				log.severe("Failed to synch Instance '" + name + "' - Dungeon does NOT exist!");
+				Log.severe("Failed to synch Instance '" + name + "' - Dungeon does NOT exist!");
 				this.state = instanceState.INVALID;
 				
 				return false;
@@ -143,24 +147,24 @@ public class InstanceData extends CSVable{
 			
 			if(dungeon.state >= dungeonState.PREPPED){
 				if(dungeon.getSchematic() == null){
-					log.severe("Failed to synch Instance '" + name + "' - Dungeon does NOT have a schematic!");
+					Log.severe("Failed to synch Instance '" + name + "' - Dungeon does NOT have a schematic!");
 					return false;
 				} else {
 					this.bounds = new CuboidRegion(origin, origin.add(dungeon.getSchematic().getSize()));
 				}
 			} else {
-				log.severe("Failed to synch Instance '" + name + "' - Dungeon is in state "+dungeonState.toString(dungeon.state)+" - It MUST be at least PREPPED!");
+				Log.severe("Failed to synch Instance '" + name + "' - Dungeon is in state "+dungeonState.toString(dungeon.state)+" - It MUST be at least PREPPED!");
 				return false;
 			}
 		} else {
-			this.log.severe("Failed to synch Instance '" + name + "' - dungeonName field is null! THIS INSTANCE IS INVALID!");
+			Log.severe("Failed to synch Instance '" + name + "' - dungeonName field is null! THIS INSTANCE IS INVALID!");
 		}
 		return false;
 	}
 	
 	public String getStatusDisplay(){
-		String t = "OFFLINE";
-		t = Config.tcol + this.name + " -:[]:- " + Config.bcol + instanceState.toString(state) + " -:[]:- " +Config.tcol+ " Location : " + this.getOrigin().getBlockX() + ", " + this.getOrigin().getBlockY() + ", " + this.getOrigin().getBlockZ() + " -:[]:- " + Config.bcol + " Dungeon : " + this.getDungeon().name;
+		String t = "";
+		t = Config.tcol + this.name + " -:[]:- " + Config.bcol + instanceState.toString(state) + " -:[]:- " +Config.tcol+ " Location : " + this.getOrigin().getBlockX() + ", " + this.getOrigin().getBlockY() + ", " + this.getOrigin().getBlockZ() + " -:[]:- " + Config.bcol + " Dungeon : " + this.getDungeon().name + " -:[]:- " + Config.tcol + " Owner : " + owner;
 		return t;
 		
 	}

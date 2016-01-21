@@ -6,7 +6,7 @@ plugin:
     #Should this plugin even try to load up?
     enabled: true
     #Debug console output - could be VERY spammy.
-    debug: false 
+    debug: true
 
 #Dimension configuration
 dimension:

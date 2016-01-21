@@ -1,8 +1,7 @@
 package net.mineyourmind.mrwisski.InstancedDungeon.Commands;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.logging.Logger;
-
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.command.Command;
@@ -10,8 +9,9 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
-import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.RetVal;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.Util;
 
 //TODO : We'll Need a sponge-style Command Handler!
 
@@ -24,7 +24,6 @@ import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 public class HandleCommand implements CommandExecutor {
 	Server server = null;
 	private HashMap <String, CommandFunctor> commands = new HashMap<String, CommandFunctor>();
-	Logger log = null;
 	
 	CommandReload reload = null;
 	CommandSave save = null;
@@ -35,7 +34,6 @@ public class HandleCommand implements CommandExecutor {
 	
 	
 	public HandleCommand(FunctionsBridge bridge){
-		log = InstancedDungeon.getInstance().getLogger();
 		server = Bukkit.getServer();
 		
 		reload = new CommandReload(bridge);
@@ -65,8 +63,14 @@ public class HandleCommand implements CommandExecutor {
 		return true;
 	}
 	
+	private void sendMessage(CommandSender to, ArrayList<String> message){
+		for(String s : message){
+			to.sendMessage(Config.header + Config.tcol + " " + s);
+		}
+	}
+	
 	private void showHelp(CommandSender sender, String[] args){
-		String message = "No help for this.";
+		ArrayList<String> message = new ArrayList<String>();
 		boolean showMain = true;
 		//Is player looking for help on a specific command?
 		if(args != null && args.length > 1){
@@ -75,7 +79,7 @@ public class HandleCommand implements CommandExecutor {
 			if(commands.containsKey(sub)){
 				//Is it a command this sender has access to?
 				if(canRun(sender, commands.get(sub))){
-					message = Config.header + " " + commands.get(sub).getFullHelp();
+					message.addAll(commands.get(sub).getFullHelp());
 					showMain = false;
 				} else {
 					//Nope, sender cannot access, so go ahead and send the default help.
@@ -84,22 +88,23 @@ public class HandleCommand implements CommandExecutor {
 		}
 		if(showMain){
 			//Build the main help index.
-			message = Config.header + " help " + Config.bcol + "- This screen \n" +
-					Config.header + " help <command> " + Config.bcol + "- Get help on a specific command.\n";
+			
+			message.add("help " + Config.bcol + "- This screen");
+			message.add("help <command> " + Config.bcol + "- Get help on a specific command.");
 			//Add in our commands help, if the sender can run them.
 			for(String N : commands.keySet()){
 				if(canRun(sender,commands.get(N))) {
-					message += Config.header + " " + commands.get(N).getBriefHelp() + "\n";
+					message.addAll(commands.get(N).getBriefHelp());
 				}
 			}			
 		}
 		
-		sender.sendMessage(message);
+		sendMessage(sender, message);
 	}
 	
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-
+				
 		if (cmd.getName().equals(Config.command)) {
 			//Send basic help if no arguments
 			if (args == null || args.length == 0) {
@@ -113,21 +118,23 @@ public class HandleCommand implements CommandExecutor {
 			}
 			
 			String sub = args[0].toLowerCase();
+			ArrayList<String> arg = Util.argsToList(args);
 			
 			//Do we have this command? Can the sender run it?
 			if(commands.containsKey(sub) && canRun(sender,commands.get(sub))){
+				
 				//Execute the command.
-				commands.get(sub).execute(args,sender.getName());
+				RetVal r = commands.get(sub).execute(arg,sender.getName());
 				//Send the sender the results of this operation.
-				sender.sendMessage(commands.get(sub).getMessage());
+				sendMessage(sender,r.message);
 			} else if(commands.containsKey(sub)){
 				
 				if(sender == server.getConsoleSender()){
 					//Inform console that this command requires an in-game player.
 					sender.sendMessage(Config.header + Config.ecol + " Sorry, Console, but this command requires an in-game player!");
 				} else {
-					//Show the help!
-					showHelp(sender,args);
+					//Show the help! but without arguments, dont want people peeking!
+					showHelp(sender,null);
 				}
 			} else {
 				showHelp(sender,args);

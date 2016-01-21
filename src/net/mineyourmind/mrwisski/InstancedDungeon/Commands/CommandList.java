@@ -1,37 +1,39 @@
 package net.mineyourmind.mrwisski.InstancedDungeon.Commands;
 
+import java.util.ArrayList;
 import java.util.Set;
 
-import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
-import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonManager;
-import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceData;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceManager;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.RetVal;
 
-public class CommandList extends CommandFunctor {
-	private String message = "No Message.";
+public class CommandList implements CommandFunctor {
 	
 	CommandList(){
 		
 	}
 	
 	@Override
-	public boolean execute(String[] args, String pName) {
-		message = Config.header + " Dungeons : \n";
+	public RetVal execute(ArrayList<String> arg, String pName) {
+		Log.debug("CommandList.execute");
+		RetVal r = new RetVal();
+		
+		r.add("Dungeons :");
 		DungeonManager.getInstance();
 		InstanceManager.getInstance();
 		
 		Set<String> k = DungeonManager.getDungeonList();
 		for(String S : k){
-			message += Config.header + " " + DungeonManager.getDungeon(S).getStatusDisplay() + "\n";
+			r.add(DungeonManager.getDungeon(S).getStatusDisplay());
 		}
-		message += "\n" + Config.header + " Instances : \n";
+		r.add("Instances :");
 		k = InstanceManager.getInstanceList();
 		for(String S : k){
-			InstanceData i = InstanceManager.getInstance(S);
-			message += Config.header + " " + InstanceManager.getInstance(S).getStatusDisplay() + "\n";
+			r.add(InstanceManager.getInstance(S).getStatusDisplay());
 		}
-		return true;
+		r.tru();
+		return r;
 	}
 
 	@Override
@@ -40,44 +42,32 @@ public class CommandList extends CommandFunctor {
 	}
 
 	@Override
-	public String getMessage() {
-		return message;
+	public ArrayList<String> getFullHelp() {
+		return new ArrayList<String>();
 	}
 
 	@Override
-	public String getFullHelp() {
-		return 	"Lists various things : \n" + 
-				"list dungeon : Lists all created dungeons, and displays status information on each.\n" + 
-				"list instance : Lists all valid instances, and displays status information on each.";
-	}
-
-	@Override
-	public String getBriefHelp() {
-		return 	"list dungeon " + Config.bcol + "- Lists dungeon info\n" + 
-				"list instance " + Config.bcol + "- Lists instances info\n";
+	public ArrayList<String> getBriefHelp() {
+		return 	new ArrayList<String>();
 	}
 
 	@Override
 	public String getPerm() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public boolean reqOp() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public boolean reqConsole() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public boolean allowConsole() {
-		// TODO Auto-generated method stub
 		return true;
 	}
 

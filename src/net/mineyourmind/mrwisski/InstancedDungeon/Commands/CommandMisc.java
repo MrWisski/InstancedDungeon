@@ -1,9 +1,12 @@
 package net.mineyourmind.mrwisski.InstancedDungeon.Commands;
 
-import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
-import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
+import java.util.ArrayList;
 
-public class CommandMisc extends CommandFunctor {
+import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
+import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.RetVal;
+
+public class CommandMisc implements CommandFunctor {
 	String message = "No Message.";
 	FunctionsBridge bridge = null;
 	
@@ -12,35 +15,8 @@ public class CommandMisc extends CommandFunctor {
 	}
 	
 	@Override
-	public boolean execute(String[] args, String pName) {
-		if(args.length == 0){message = this.getBriefHelp();}
-		int c = 0;
-		for(String s : args){
-			InstancedDungeon.Log.info(c + " : " + s);
-		}
-		FunctionsBridge.itemInfo i = bridge.getPlayerItemInHand(pName);
-		message = "Item in hand : " + i.name + "x" + i.count + " :: " + i.material;
-		return true;
-	}
-
-	@Override
 	public String getName() {
 		return "misc";
-	}
-
-	@Override
-	public String getMessage() {
-		return message;
-	}
-
-	@Override
-	public String getFullHelp() {
-		return "Just some misc commands to make life easier.";
-	}
-
-	@Override
-	public String getBriefHelp() {
-		return "itemhand - Get information about the item in your hand!";
 	}
 
 	@Override
@@ -65,6 +41,29 @@ public class CommandMisc extends CommandFunctor {
 	public boolean allowConsole() {
 		// TODO Auto-generated method stub
 		return false;
+	}
+
+	@Override
+	public RetVal execute(ArrayList<String> arg, String pName) {
+		RetVal r = new RetVal();
+		FunctionsBridge.itemInfo i = bridge.getPlayerItemInHand(pName);
+		message = "Item in hand : " + i.name + "x" + i.count + " :: " + i.material;
+		return r;
+	}
+
+	@Override
+	public ArrayList<String> getFullHelp() {
+		ArrayList<String> m = new ArrayList<String>();
+		m.add("Just some misc functions that don't fit anywhere else!");
+		// TODO Auto-generated method stub
+		return m;
+	}
+
+	@Override
+	public ArrayList<String> getBriefHelp() {
+		ArrayList<String> m = new ArrayList<String>();
+		m.add("misc itemhand " + Config.bcol + "- returns the material name of the item in your hand!");
+		return m;
 	}
 
 }

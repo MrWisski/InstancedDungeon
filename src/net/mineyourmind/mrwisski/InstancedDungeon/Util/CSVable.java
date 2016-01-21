@@ -2,9 +2,6 @@ package net.mineyourmind.mrwisski.InstancedDungeon.Util;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.logging.Logger;
-
-import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 
 /** Class to handle writing out a classes data to CSV.
  * 
@@ -19,7 +16,6 @@ public abstract class CSVable {
 	protected static final boolean DEBUG = false;
 	protected static final String DATA_SEPERATOR = ";";
 	protected static final String FIELD_SEPERATOR = "~";
-	protected Logger log = InstancedDungeon.instance.getLogger();
 	protected boolean synched = false;
 	
 	/**synch function - Use this to synchronize/rebuild data after being reinstated from CSV.
@@ -37,25 +33,25 @@ public abstract class CSVable {
 		String out = "";
 	
 		for (Field field : this.getClass().getFields()) {
-			if(DEBUG) log.info("Examining field : " +Modifier.toString(field.getModifiers())+ " " + field.getName());
+			Log.info("Examining field : " +Modifier.toString(field.getModifiers())+ " " + field.getName());
 			try {
 				int m = field.getModifiers();
 				if(Modifier.isPrivate(m) || Modifier.isProtected(m) || Modifier.isStatic(m)){
-					if(DEBUG) log.info("Ignoring - shouldn't touch this.");
+					Log.debug("Ignoring - shouldn't touch this.");
 				} else {
 					if(field.get(this) != null){
 						String val = field.get(this).toString();
 						String so = field.getName() + DATA_SEPERATOR + field.getType().getName() + DATA_SEPERATOR + val + FIELD_SEPERATOR;
-						if(DEBUG) log.info("Added : " + so);
+						Log.debug("Added : " + so);
 
 						out += so;
 					} else {
-						if(DEBUG) log.info("Field '"+field.getName()+"' is null - skipping.");
+						Log.debug("Field '"+field.getName()+"' is null - skipping.");
 					}
 					//l.info("Think i can access this.");
 				}
 			} catch (IllegalArgumentException | ReflectiveOperationException e) {
-				log.severe("Failed to serialize object!");
+				Log.severe("Failed to serialize object!");
 				e.printStackTrace();
 				return null;
 			}
@@ -68,15 +64,15 @@ public abstract class CSVable {
 		String temp = "";
 		int c = 0;
 		String[] fstr = s.split(FIELD_SEPERATOR);
-		if(DEBUG) log.info("Big split");
+		Log.debug("Big split");
 		for(String split : fstr){
 			temp += "["+c+"] '"+split + "'\n";
 			c++;
 		}
-		if(DEBUG) log.info(temp);
+		Log.debug(temp);
 		try{
 			for(String sub : fstr){
-				if(DEBUG) log.info("Analyzing string : '" + sub + "'");
+				Log.debug("Analyzing string : '" + sub + "'");
 				String[] fieldstr = sub.split(DATA_SEPERATOR);
 				temp = "";
 				c = 0;
@@ -84,11 +80,11 @@ public abstract class CSVable {
 					temp += "["+c+"] '"+split + "'\n";
 					c++;
 				}
-				if(DEBUG) log.info(temp);
+				Log.debug(temp);
 				Field field = this.getClass().getDeclaredField(fieldstr[0]);
 				Class<?> rClass = field.getType();
 				if(fieldstr.length != 3){
-					if(DEBUG) log.info("Field " + field.getName() + " value saved as null - skipping.");
+					Log.debug("Field " + field.getName() + " value saved as null - skipping.");
 					continue;
 					
 				}
@@ -112,12 +108,12 @@ public abstract class CSVable {
 				} else if (rClass == char.class) {
 					field.set(this, fieldstr[2].charAt(0));
 				} else {
-					log.severe("Failed to de-serialize " + rClass.getSimpleName() + " object!");
+					Log.severe("Failed to de-serialize " + rClass.getSimpleName() + " object!");
 					//return false;
 				}
 			}
 		} catch(IllegalArgumentException | IllegalAccessException | NoSuchFieldException | SecurityException e) {
-			log.severe("Failed to de-serialize object " + this.getClass().getName());
+			Log.severe("Failed to de-serialize object " + this.getClass().getName());
 			//to = null;
 			e.printStackTrace();
 			return false;

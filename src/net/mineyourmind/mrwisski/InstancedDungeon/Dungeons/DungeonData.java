@@ -22,6 +22,7 @@ import com.sk89q.worldedit.regions.Region;
 import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.CSVable;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
 
 public class DungeonData extends CSVable{
 	public static class dungeonState{
@@ -69,8 +70,8 @@ public class DungeonData extends CSVable{
 	public int spawnX = 0;
 	public int spawnY = 0;
 	public int spawnZ = 0;
-	public int spawnPitch = 0;
-	public int spawnYaw = 0;
+	public float spawnPitch = 0;
+	public float spawnYaw = 0;
 	
 	private CuboidRegion bounds = new CuboidRegion(new Vector(0,0,0),new Vector(1,1,1));
 	private Vector center = new Vector(0,0,0);
@@ -81,26 +82,29 @@ public class DungeonData extends CSVable{
 	private InstanceData editInst = null;
 	
 	public void setTemplate(CuboidClipboard schem){
+		Log.debug("DungeonData.setTemplate");
 		template = schem;
 		if(this.state >= dungeonState.PREPPED){
-			log.info("Will not set up template, data is in PREPPED or higher state!");
+			Log.debug("Will not set up template on a Dungeon in state '"+dungeonState.toString(state)+"'");
 			return;
 		}
 		
 		bounds = new CuboidRegion(new Vector(0,0,0),schem.getSize());
 		center = schem.getSize().divide(2);
 				
-		log.info("Schematic Stats : ");
-		log.info("H : " + schem.getHeight() + " W : " + schem.getWidth() + " L : " + schem.getLength());
-		log.info("Origin X : " + schem.getOrigin().getX() + " Y : " + schem.getOrigin().getY() + " Z : " + schem.getOrigin().getZ());
-		log.info("Offset X : " + schem.getOffset().getX() + " Y : " + schem.getOffset().getY() + " Y : " + schem.getOffset().getZ());	
+		Log.debug("Schematic Stats : ");
+		Log.debug("H : " + schem.getHeight() + " W : " + schem.getWidth() + " L : " + schem.getLength());
+		Log.debug("Origin X : " + schem.getOrigin().getX() + " Y : " + schem.getOrigin().getY() + " Z : " + schem.getOrigin().getZ());
+		Log.debug("Offset X : " + schem.getOffset().getX() + " Y : " + schem.getOffset().getY() + " Y : " + schem.getOffset().getZ());	
 	}
+	
 	public CuboidClipboard getTemplate(){ return template;}
 	
 	public void setSchematic(CuboidClipboard schem){
+		Log.debug("DungeonData.setSchematic");
 		schematic = schem;
 		if(this.state < dungeonState.PREPPED){
-			log.info("Will not set up schematic, data is not past PREPPED state.");
+			Log.debug("Will not set up schematic on a Dungeon in state '"+dungeonState.toString(state)+"'");
 			return;
 		}
 		
@@ -113,16 +117,17 @@ public class DungeonData extends CSVable{
 	public CuboidClipboard getSchematic(){return schematic;}
 	
 
-	public void setSpawn(int x, int y, int z, int yaw, int pitch){
+	public void setSpawn(int x, int y, int z, float f, float g){
 		this.spawnX = x;
 		this.spawnY = y;
 		this.spawnZ = z;
-		this.spawnYaw = yaw;
-		this.spawnPitch = pitch;
+		this.spawnYaw = f;
+		this.spawnPitch = g;
 	}
 
 	@Override
 	public boolean synch() {
+		Log.debug("DungeonData.synch");
 		DungeonManager.setTemplate(this);
 		DungeonManager.setSchematic(this);
 		
@@ -131,6 +136,7 @@ public class DungeonData extends CSVable{
 	}
 	
 	public String getStatusDisplay(){
+		Log.debug("DungeonData.getStatusDisplay");
 		String t = "OFFLINE";
 		t = Config.tcol + this.name + "::" + Config.bcol + dungeonState.toString(state) + " :: " +Config.tcol+ " Template : " + (template != null ? "Yes" : "No") + " :: " + Config.bcol + " Schematic : " + (schematic != null ? "Yes" : "No");
 		return t;

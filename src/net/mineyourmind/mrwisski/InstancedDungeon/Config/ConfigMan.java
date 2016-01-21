@@ -15,6 +15,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import com.google.common.io.Files;
 
 import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
 
 
 // Config management class to bypass bukkit 1.6.4's
@@ -28,7 +29,6 @@ public class ConfigMan {
 	//Internal use only vars
 	private YamlConfiguration thisConfig = null;
 	private File thisConfigFile = null;
-	private Logger Log = null;
 	private boolean debug = false;
 
 	/** Denotes if this configman instance is running a valid config */
@@ -143,13 +143,10 @@ public class ConfigMan {
 	 * @param fileName 		Path + filename of the configuration file to load in.
 	 * @param useLog 		Logger from main class to use when printing error/info messages.
 	 * */
-	public ConfigMan(String fileName,Logger useLog){
-		if(useLog == null){
-			Log.severe("ConfigMan - Null logger passed to constructor - THIS IS UNACCEPTABLE!");
-		} else if(fileName.length() == 0){
+	public ConfigMan(String fileName){
+		if(fileName.length() == 0){
 			Log.severe("ConfigMan - empty string was passed to constructor for filename - THIS IS UNNACEPTABLE!");
 		} else {
-			this.Log = useLog;
 			this.thisConfigFile = new File(fileName);
 
 		}
@@ -161,14 +158,11 @@ public class ConfigMan {
 	 * @param f     		File of the configuration file to load in.
 	 * @param useLog 		Logger from main class to use when printing error/info messages.
 	 * */
-	public ConfigMan(File f, Logger useLog){
-		if(useLog == null){
-			Log.severe("ConfigMan - null logger passed to constructor - THIS IS UNACCEPTABLE!");
-		} else if(f == null){
+	public ConfigMan(File f){
+		if(f == null){
 			Log.severe("ConfigMan - null File was passed to constructor - THIS IS UNNACEPTABLE!");
 		} else {
 			this.thisConfigFile = f;
-			this.Log = useLog;
 		}
 	}
 

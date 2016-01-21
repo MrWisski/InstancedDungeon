@@ -1,13 +1,15 @@
 package net.mineyourmind.mrwisski.InstancedDungeon.Commands;
 
+import java.util.ArrayList;
+
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.RetVal;
 
 /**Command Functor Class
  * 
  * @author MrWisski
  * @version 0.0.1a 17 Jan 2016 - Initial code.
  */
-public abstract class CommandFunctor {
-	public String message = "";
+public interface CommandFunctor {
 	
 	/** Executes this specific command.
 	 * 
@@ -16,26 +18,22 @@ public abstract class CommandFunctor {
 	 * @return 	True if successful, false otherwise
 	 * 			In either case, getMessage must return a resulting message.
 	 */
-	public abstract boolean execute(final String[] args, final String pName);
+	public abstract RetVal execute(final ArrayList<String> arg, final String pName);
 	
 	/** 
 	 * @return	The name of this command.
 	 */
 	public abstract String getName();
-	/**
-	 * @return	The message result from execute - IE, (Success) "(playername) was nuked" or 
-	 * 			"(Failure) "Could not find (playername)!"
-	 */
-	public abstract String getMessage();
+
 	/**
 	 * @return	The full help text for this command.
 	 */
-	public abstract String getFullHelp();
+	public abstract ArrayList<String> getFullHelp();
 	
 	/**
-	 * @return	A brief, one line synopsis of this command : "command : what command does"
+	 * @return	A brief, one line synopsis of this command, or commands : "command : what command does"
 	 */
-	public abstract String getBriefHelp();
+	public abstract ArrayList<String> getBriefHelp();
 	
 	/**
 	 * 
