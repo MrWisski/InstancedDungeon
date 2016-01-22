@@ -32,6 +32,7 @@ import com.sk89q.worldedit.schematic.SchematicFormat;
 
 import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
 import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
+import net.mineyourmind.mrwisski.InstancedDungeon.MCEditExtendedSchematicFormat;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData.dungeonState;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
@@ -43,6 +44,7 @@ public class DungeonManager {
 	private static HashMap<String, DungeonData> dungeons = new HashMap<String,DungeonData>();
 	public static DungeonManager instance = null;
 	public static FunctionsBridge bridge = null;
+	static MCEditExtendedSchematicFormat mcee = new MCEditExtendedSchematicFormat();
 	
 	public static String test(String name){
 		//DungeonData d = dungeons.get(name);
@@ -88,7 +90,7 @@ public class DungeonManager {
 		File f = bridge.getWEditSchematic(d.templateLoc);
 		CuboidClipboard cc;
 		try {
-			cc = SchematicFormat.MCEDIT.load(f);
+			cc = mcee.load(f);
 		} catch (IOException | DataException e) {
 			Log.error("pasteTemplate() : IOException while reading template!");
 			r.IntErr();
@@ -130,7 +132,7 @@ public class DungeonManager {
 		CuboidClipboard cc;
 		AsyncCuboidClipboard acc;
 		try {
-			cc = SchematicFormat.MCEDIT.load(f);
+			cc = mcee.load(f);
 			
 			
 		} catch (IOException | DataException e) {
@@ -244,7 +246,8 @@ public class DungeonManager {
 		//If we're not already prepared
 		if(d.templateLoc != ""){
 			try {
-				d.setTemplate(SchematicFormat.MCEDIT.load(bridge.getWEditSchematic(d.templateLoc)));
+								
+				d.setTemplate(mcee.load(bridge.getWEditSchematic(d.templateLoc)));
 			} catch (DataException | IOException e) {
 				e.printStackTrace();
 				r.IntErr();
@@ -272,7 +275,7 @@ public class DungeonManager {
 		//If we're not already prepared
 		if(d.schematicLoc != ""){
 			try {
-				d.setSchematic(SchematicFormat.MCEDIT.load(new File(bridge.getDataDir(),Config.pathToDungeons + d.schematicLoc )));
+				d.setSchematic(mcee.load(new File(bridge.getDataDir(),Config.pathToDungeons + d.schematicLoc )));
 			} catch (DataException | IOException e) {
 				r.IntErr("Error reading schematic from disk!");
 				e.printStackTrace();
@@ -295,6 +298,26 @@ public class DungeonManager {
 				
 			}
 		}
+	}
+	
+	//Just saves out the currently stored clipboard - needed for Edit Dungeon saving.
+	public static RetVal saveSchematic(DungeonData d){
+		Log.debug("DungeonManager.saveSchematic");
+		RetVal r = new RetVal();
+		
+		try {
+			File f = new File(bridge.getDataDir(),Config.pathToDungeons + d.schematicLoc );
+			mcee.save(d.getSchematic(), f);
+		} catch (IOException | DataException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			r.Err("Failed to save out schematic : " + d.schematicLoc);
+			return r;
+		}
+		r.add("Saved out schematic '"+d.schematicLoc+"'!");
+		r.tru();
+		return r;
+		
 	}
 	
 	@SuppressWarnings("deprecation")
@@ -368,7 +391,7 @@ public class DungeonManager {
 		//Save our modified template as our official schematic!
 		File f = new File(bridge.getDataDir(),Config.pathToDungeons + d.templateLoc );
 		try {
-			SchematicFormat.MCEDIT.save(t, f);
+			mcee.save(t, f);
 		} catch (IOException | DataException e) {
 			e.printStackTrace();
 			r.IntErr("Failed to save prepared Schematic!");
@@ -485,5 +508,27 @@ public class DungeonManager {
 		r.add("Loaded all Dungeons!");
 		return r;
 
+	}
+	
+	//Returns a dungeon to it's PREPPED state, so it can be re-edited.
+	public static RetVal unReadyDungeon(String name){
+		Log.debug("DungeonManager.unReadyDungeon");
+		RetVal r = new RetVal();
+		
+		DungeonData d = DungeonManager.getDungeon(name);
+		if(d == null){
+			r.Err("Dungeon '"+name+"' not found!");
+			return r;
+		}
+		
+		if(d.state == dungeonState.READY){
+			d.state = dungeonState.PREPPED;
+			r.add("Dungeon '"+ name +"' has been returned to a PREPPED state!");
+			r.tru();
+			return r;
+		} else {
+			r.Err("You can only un-READY dungeons that are in the READY state! Dungeons in EDITING can be freely re-edited. Dungeons prior to PREPPED can be prepped!");
+			return r;
+		}
 	}
 }

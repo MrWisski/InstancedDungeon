@@ -58,7 +58,7 @@ import com.sk89q.worldedit.schematic.SchematicFormat;
 public class MCEditExtendedSchematicFormat extends SchematicFormat{
     private static final int MAX_SIZE = Short.MAX_VALUE - Short.MIN_VALUE;
 
-    MCEditExtendedSchematicFormat() {
+    public MCEditExtendedSchematicFormat() {
         super("MCEditExtended", "mceditex", "mcee");
     }
 

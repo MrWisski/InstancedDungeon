@@ -14,6 +14,7 @@ import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData.dungeonState;
+import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceData.instanceState;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceData;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceManager;
@@ -49,39 +50,23 @@ public class CommandDungeon implements CommandFunctor {
 			case "create":
 				arg.remove(0);
 				return subCreate(arg);
+			case "delete":
+				arg.remove(0);
+				return subDelete(arg, pName);
 			case "prep":
 				arg.remove(0);
 				return DungeonManager.prepDungeon(arg.get(0));
-			case "entrance":
-				arg.remove(0);
-				return subEntrance(arg, pName);
 			case "save":
 				return subSave(arg.get(0));
 			case "edit":
 				arg.remove(0);
-				return subEdit(arg.get(0), pName);
+				return subEdit(arg, pName);
 			case "finalize":
 				arg.remove(0);
-				DungeonData d = null;
-				if(arg.size() != 1){
-					r.Err("Format is <Dungeon Name>!");
-					r.status = false;
-					return r;
-				} else {
-					if(arg.get(0) == ""){
-						r.Err("Format is <Dungeon Name>");
-						return r;
-					} else {
-						d = DungeonManager.getDungeon(arg.get(0));
-						if(d == null){
-							r.Err("Couldn't find Dungeon '"+arg.get(0)+"'!");
-							return r;
-						}
-					}
-					d.state = dungeonState.READY;
-					r.add("Dungeon '" + d.name + "' has been finalized! It is now ready for instancing!");
-					return r;
-				}
+				return subFinalize(arg,pName);
+			case "unready":
+				arg.remove(0);
+				return DungeonManager.unReadyDungeon(arg.get(0));
 			default:
 				Log.debug("default handler.");
 				r.addAll(getBriefHelp());
@@ -91,77 +76,130 @@ public class CommandDungeon implements CommandFunctor {
 		}
 	}
 	
-	private RetVal subEdit(String arg, String pName){
+	private RetVal subFinalize(ArrayList<String> arg, String pName) {
+		Log.debug("CommandDungeon.subFinalize");
+		RetVal r = new RetVal();
+		
+		DungeonData d = null;
+		if(arg.size() != 1){
+			r.Err("Format is <Dungeon Name>!");
+			r.status = false;
+			return r;
+		} 
+
+		if(arg.get(0) == ""){
+			r.Err("Format is <Dungeon Name>");
+			return r;
+		}
+
+		d = DungeonManager.getDungeon(arg.get(0));
+		
+		if(d == null){
+			r.Err("Couldn't find Dungeon '"+arg.get(0)+"'!");
+			return r;
+		}
+
+		Log.debug("Getting Dungeon state.");
+		if(d.state != dungeonState.EDITING){
+			Log.debug("Dungeon is not in EDITING state!");
+			r.Err("Dungeon needs to be in dungeon state EDITING.");
+			return r;
+		}
+		
+		Log.debug("Dungeon state IS in EDITING - checking instance.");
+		InstanceData i = InstanceManager.getEditInstanceForDungeon(d.name);
+		if(i == null){
+			Log.debug("Error : Dungeon '" +d.name+"' is in state EDITING, but no edit Instance found!");
+			r.add("Found dungeon in EDITING state, with no matching edit Instance - Assuming i'm a moron, and didn't clean something up. ^_^");
+		}
+		
+		Log.debug("Instance is valid - checking instance state : " + instanceState.toString(i.state));
+		if(i.state != instanceState.EDIT){
+			Log.debug("Instance is not in state EDIT!");
+			r.Err("Instance requires to be in state EDIT! It's not!");
+		}
+		
+		//NOW we need to finish it up, and save out the schematic!
+		Log.debug("Saving instance out.");
+		RetVal rf = DungeonManager.saveSchematic(d);
+		if(!rf.status){
+			Log.debug("Saving FAILED.");
+			r.addAll(rf.message);
+			return r;
+		} else {
+			Log.debug("Save success!");
+		}
+		
+		Log.debug("Instance is in EDIT state - unmounting region.");
+		rf = InstanceManager.unmountRegion(i.name);
+		if(!rf.status){
+			r.addAll(rf.message);
+			r.Err("Failed to unmount edit Instance for dungeon '"+d.name+"' at instance '"+i.name+"'!");
+			i.state = instanceState.INVALID;
+		} else {
+			r.add("Edit Instance sucessfully removed from the world!");
+			i.state = instanceState.RELEASED;
+			Log.debug("Deleting instance data.");
+			InstanceManager.delInstance(i.name);
+		}
+					
+		d.state = dungeonState.READY;
+		r.add("Dungeon '" + d.name + "' has been finalized! It is now ready for instancing!");
+		r.tru();
+		return r;
+
+	}
+
+	private RetVal subDelete(ArrayList<String> arg, String pName) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	private RetVal subEdit(ArrayList<String> arg, String pName){
 		Log.debug("CommandDungeon.subEdit");
 		RetVal r = new RetVal();
 		
-		if(arg == null || arg == ""){
+		if(arg.isEmpty() || arg.get(0) == ""){
 			r.Err("Usage is <Dungeon Name>!");
 			return r;
 		}
 		
-		DungeonData d = DungeonManager.getDungeon(arg);
+		DungeonData d = DungeonManager.getDungeon(arg.get(0));
 		
 		if(d == null){
-			r.Err("Dungeon '"+arg+"' not found.");
+			r.Err("Dungeon '"+arg.get(0)+"' not found.");
 			return r;
 		}
 		
-		if(d.state != dungeonState.PREPPED){
+		//it might be in EDITING already if we had an issue - go ahead and allow editing of
+		//dungeons in state EDITING.
+		if(d.state != dungeonState.PREPPED && d.state != dungeonState.EDITING){
 			r.Err("Dungeon is not in state PREPPED. Dungeon currently in state : " + dungeonState.toString(d.state));
 			return r;
 		}
 		
-		RetVal rf = InstanceManager.createInstance(pName, d.name, true);
-		
-		if(rf.retObj == null || !(rf.retObj instanceof InstanceData) || !rf.status){
-			r.addAll(rf.message);
-			r.IntErr("Error creating Edit-mode Instance");
-			return r;
-		}
-		
+		RetVal rf = InstanceManager.createAndMountEditInstance(d.name, pName);
 		InstanceData i = (InstanceData)rf.retObj;
-		
-		rf = InstanceManager.mountRegion(i.name);
 		
 		if(!rf.status){
 			r.addAll(rf.message);
 			r.IntErr("Error mounting Edit-mode Instance");
 			return r;
 			
+		} else {
+			r.add("Teleporting you to your edit instance!");
+			rf = InstanceManager.sendPlayerToInstance(pName, i);
+			if(rf.status){
+				r.tru();
+				return r;
+			} else {
+				r.Err("An error occured teleporting you to your instance!");
+				r.addAll(rf.message);
+				return r;
+			}
+			//bridge.tpPlayer(pName, Config.dimension, i.getBounds().getCenter().getBlockX(), i.getBounds().getCenter().getBlockY(), i.getBounds().getCenter().getBlockZ(), 0, 0);
 		}
-		
-		EditSession es = InstancedDungeon.instance.worldEdit.createEditSession(bridge.getPlayer(pName));
-		
-		
-		return r;
 	}
-	
-	private RetVal subEntrance(ArrayList<String> arg, String pName){
-		Log.debug("CommandDungeon.subEntrance");
-		RetVal r = new RetVal();
-
-		arg.remove(0); // remove entrance
-		
-		if(arg.isEmpty()){
-			r.Err(Config.ecol + "Error - Invalid number of arguments! Command is /" + Config.command + " dungeon entrance <dungeon name> (while standing at the warp-in point)!");
-			return r;
-		}
-		DungeonData d = DungeonManager.getDungeon(arg.get(0));
-		if(d == null){
-			r.Err(Config.ecol + "Error - Invalid argument! '" + arg.get(0) + "' not a valid Dungeon!");
-			return r;
-		} 
-		Location l = bridge.getPlayerLoc(pName);
-		
-		d.setSpawn(l.getPosition().getBlockX(),l.getPosition().getBlockY(),l.getPosition().getBlockZ(),l.getYaw(), l.getPitch());
-		r.add("Successfully added spawn in location to Dungeon '"+arg.get(0)+"'");
-		r.tru();
-		
-		return r;
-	
-	}
-	
 	
 	private RetVal subSave(String sender){
 		Log.info("Saving Dungeons at the request of "+sender+"!");
@@ -250,7 +288,8 @@ public class CommandDungeon implements CommandFunctor {
 		m.add("dungeon entrance <dungeon name> " + Config.bcol + "- Sets the Spawn-in area for this dungeon. Required before readying!");
 		m.add("dungeon save <dungeon name> " + Config.bcol + "- Saves out a new WorldEdit schematic, ready for tailoring to your needs! You can find this schematic in /InstancedDungeon/schematics");
 		m.add("dungeon edit <dungeon name> " + Config.bcol + "- Spawns in an edit-instance for this dungeon."); 
-		m.add("dungeon finalize <dungeon name> " + Config.bcol + "- Finishes Edit mode (if in edit) on a dungeon, and marks it as ready to accept instancing.");				
+		m.add("dungeon unready <dungeon name> " + Config.bcol + "- Returns a READY dungeon to PREPPED, so it can be re-edited.");
+		m.add("dungeon finalize <dungeon name> " + Config.bcol + "- Finishes Edit mode (if in edit) on a dungeon, saves the edited schematic out, and marks it as ready to accept instancing.");				
 		return m;
 	}
 

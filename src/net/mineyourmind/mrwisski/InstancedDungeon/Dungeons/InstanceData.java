@@ -72,7 +72,7 @@ public class InstanceData extends CSVable{
 	
 	
 	//Owners UUID
-	String owneruuid = "";
+	public String owneruuid = "";
 	private UUID uuid = null;
 	public UUID getUUID(){return uuid;}
 	

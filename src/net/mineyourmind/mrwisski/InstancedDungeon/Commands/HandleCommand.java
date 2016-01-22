@@ -31,6 +31,7 @@ public class HandleCommand implements CommandExecutor {
 	CommandList list = null;
 	CommandMisc misc = null;
 	CommandInstance instance = null;
+	CommandEdit edit = null;
 	
 	
 	public HandleCommand(FunctionsBridge bridge){
@@ -48,6 +49,8 @@ public class HandleCommand implements CommandExecutor {
 		commands.put(misc.getName(), misc);
 		instance = new CommandInstance();
 		commands.put(instance.getName(), instance);
+		edit = new CommandEdit();
+		commands.put(edit.getName(), edit);
 	}
 	
 	private boolean canRun(CommandSender sender, CommandFunctor C){

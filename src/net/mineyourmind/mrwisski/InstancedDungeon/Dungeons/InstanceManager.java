@@ -15,6 +15,7 @@ import java.util.UUID;
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.Location;
 import com.sk89q.worldedit.Vector;
+import com.sk89q.worldedit.blocks.BaseBlock;
 import com.sk89q.worldedit.bukkit.BukkitWorld;
 import com.sk89q.worldedit.regions.CuboidRegion;
 
@@ -35,6 +36,8 @@ public class InstanceManager {
 	
 	private static HashMap<String, InstanceData> instances = new HashMap<String, InstanceData>();
 	private static HashMap<UUID, InstanceData> ownerInstances = new HashMap<UUID, InstanceData>();
+	private static HashMap<String, InstanceData> editInstances = new HashMap<String, InstanceData>();
+	
 	//private static ArrayList<String> regions = new ArrayList<String>();
 	public static FunctionsBridge bridge = null;
 	private static InstanceManager instance = null;
@@ -81,6 +84,24 @@ public class InstanceManager {
 		return r ;
 	}
 	
+	public static boolean isEditing(String name){
+		return editInstances.containsKey(name);
+	}
+	
+	public static InstanceData getEditInstance(String name){
+		return editInstances.get(name);
+	}
+	
+	public static InstanceData getEditInstanceForDungeon(String dungeon){
+		for(InstanceData d : editInstances.values()){
+			if(d.dungeonName == dungeon){
+				return d;
+			}
+		}
+		
+		return null;
+	}
+	
 	public static RetVal createInstance(String owner, String dungeon, boolean edit){
 		Log.debug("InstanceManager.createInstance");
 		RetVal r = new RetVal();
@@ -118,6 +139,23 @@ public class InstanceManager {
 			return r;
 		}
 		
+		if(d.state == dungeonState.INVALID){
+			r.Err("Dungeon in the wrong state! Requires a state OTHER than INVALID, but is in an INVALID state!");
+			return r;
+		}
+		
+		if(edit){
+			if(d.state != dungeonState.EDITING){
+				r.Err("Dungeon in the wrong state! Edit flag is set - Dungeon is required to be in the EDITING state, but is in state '"+dungeonState.toString(d.state)+"' instead!");
+				return r;
+			}
+		} else {
+			if(d.state == dungeonState.EDITING){
+				r.Err("Dungeon in the wrong state! Edit flag is not set, but Dungeon is in the EDITING state! Please close out any Edit Instances of this dungeon before proceeding!");
+				return r;
+			}
+		}
+		
 		//First, we need to do a few things.
 		Vector atLoc = getNextFree();
 		Log.debug("atLoc (Region) = " +Util.vToStr(atLoc));
@@ -135,6 +173,9 @@ public class InstanceManager {
 		i = new InstanceData(name, owner, uuid, dungeon, atLoc, edit);
 		addOwner(owner, i);
 		addInstance(i);
+		if(edit){
+			editInstances.put(i.name, i);
+		}
 		r.retObj = i;
 		
 		Log.debug("Leaving Creation, status : " + i.getStatusDisplay());
@@ -192,9 +233,9 @@ public class InstanceManager {
 			return r;
 		} // allow getInstance error message through
 		
-		if(i.state != instanceState.READY){
-			r.Err("Cannot unmount an instance that is not in the READY state - Instance '"+name+"' is in state : "+ instanceState.toString(i.state));
-			Log.severe("Cannot unmount an instance that is not in the WAITING state - Instance '"+name+"' is in state : "+ instanceState.toString(i.state));
+		if(i.state != instanceState.READY && i.state != instanceState.EDIT){
+			r.Err("Cannot unmount an instance that is not in the READY or EDIT state - Instance '"+name+"' is in state : "+ instanceState.toString(i.state));
+			Log.severe("Cannot unmount an instance that is not in the READY or EDIT state - Instance '"+name+"' is in state : "+ instanceState.toString(i.state));
 			return r;
 		} else {
 			Log.debug("Instance Status : " + i.getStatusDisplay());
@@ -216,17 +257,27 @@ public class InstanceManager {
 			}
 		}
 		
+		
+		
 		Log.debug("Area is free of players!");
 		
+		//Do the actual removal - or rather, let the DungeonManager do that ^_^
 		RetVal rf = DungeonManager.deleteArea(i.getBounds().getMinimumPoint(), i.getBounds().getMaximumPoint());
+		removeOwner(i.owner); // We should remove the owner regardless.
 		if(!rf.status){
 			Log.severe("We ran into an issue clearing the area for instance " + i.name);
 			r.addAll(rf.message);
 			r.Err("Error occured unmounting instance!");
 			return r;
 		} else {
+			if(i.state == instanceState.EDIT){
+				//clean up edit instance stuff.
+				editInstances.remove(i.name);
+				i.getDungeon().state = dungeonState.PREPPED; // Take dungeon out of the EDITING state.
+			}
 			i.state = instanceState.RELEASED;
-			removeOwner(i.owner);
+			r.tru();
+		
 		}
 		
 		
@@ -256,14 +307,15 @@ public class InstanceManager {
 			Log.debug("Instance Status : " + i.getStatusDisplay());
 		}
 		
-		if(i.getDungeon().state != dungeonState.READY){
-			r.Err("Cannot mount an instance whose underlying Dungeon is not in the READY state - Dungeon '" + i.getDungeon().name + "' is in state : "+ dungeonState.toString(i.getDungeon().state));
-			Log.severe("Cannot mount an instance whose underlying Dungeon is not in the READY state - Dungeon '" + i.getDungeon().name + "' is in state : "+ dungeonState.toString(i.getDungeon().state));
+		if(i.getDungeon().state != dungeonState.READY && i.getDungeon().state != dungeonState.EDITING){
+			r.Err("Cannot mount an instance whose underlying Dungeon is not in the READY or EDITING state - Dungeon '" + i.getDungeon().name + "' is in state : "+ dungeonState.toString(i.getDungeon().state));
+			Log.severe("Cannot mount an instance whose underlying Dungeon is not in the READY or EDITING state - Dungeon '" + i.getDungeon().name + "' is in state : "+ dungeonState.toString(i.getDungeon().state));
 			return r;
 			
 		} else {
 			Log.debug("Dungeon State : " + i.getDungeon().getStatusDisplay());
 		}
+		
 		RetVal rf = DungeonManager.pasteSchematic(i.dungeonName, i.getOrigin()); 
 		
 		if(!rf.status){
@@ -282,7 +334,12 @@ public class InstanceManager {
 			}
 			
 			Log.debug("Successfully mounted Instance '"+i.name+"'!");
-			i.state = instanceState.READY;
+			if(i.getDungeon().state == dungeonState.EDITING){
+				i.state = instanceState.EDIT;
+			} else {
+				i.state = instanceState.READY;
+			}
+			
 			r.tru();
 			
 		}
@@ -293,8 +350,9 @@ public class InstanceManager {
 	
 	
 	private static RetVal setProtection(InstanceData i){
-		Log.debug("InstanceManager.");
+		Log.debug("InstanceManager.setProtection");
 		RetVal r = new RetVal();
+		r.tru();
 
 		//TODO : Integrate worldguard protection!
 		Log.severe(Config.ecol + "I WAS ASKED TO PROTECT A REGION!");
@@ -305,13 +363,28 @@ public class InstanceManager {
 	}
 	
 	public static RetVal sendPlayerToInstance(String name, InstanceData i){
-		Log.debug("InstanceManager.");
+		Log.debug("InstanceManager.sendPlayerToInstance");
 		RetVal r = new RetVal();
 
-		Log.severe(Config.ecol + "I WAS ASKED TO TELEPORT A PLAYER!");
-		Log.severe(Config.ecol + "I HAVEN'T BEEN CODED TO DO THAT!");
-		Log.severe(Config.ecol + "PLAYER IS UNTELEPORTED!");
-		r.Err("Can't TP - I dunno how!");
+		if(name == null || name == ""){
+			r.Err("Cannot tp a null player!");
+			return r;
+		}
+		
+		if(i == null){
+		}
+		
+		if(i.state != instanceState.READY && i.state != instanceState.EDIT){
+			r.Err("Cannot TP a player to an instance that is not in a READY or EDIT state - Instance is in the '"+instanceState.toString(i.state)+"' state!");
+			return r;
+		}
+		
+		
+		Vector v = i.getBounds().getMinimumPoint();
+		Vector offv = v.add(new Vector(i.getDungeon().spawnX, i.getDungeon().spawnY, i.getDungeon().spawnZ));
+		bridge.tpPlayer(name, Config.dimension,offv.getBlockX(), offv.getBlockY(), offv.getBlockZ(), i.getDungeon().spawnYaw, i.getDungeon().spawnPitch);
+		
+		r.tru();
 		return r;
 	}
 	
@@ -368,6 +441,8 @@ public class InstanceManager {
 		    Collection<InstanceData> d = instances.values();
 		    
 		    for(InstanceData dat : d){
+		    	if(dat.state == instanceState.INVALID){Log.debug("Skipping INVALID instance."); continue;}
+		    	if(dat.state == instanceState.RELEASED){Log.debug("Skipping RELEASED instance."); continue;}
 		    	String s = dat.toCSV();
 		    	bw.write(s);
 		    	bw.newLine();
@@ -449,7 +524,7 @@ public class InstanceManager {
 	}
 	
 	public static String toRegionID(Vector coords){
-		return coords.getBlockX() + "_" + coords.getBlockY();
+		return coords.getBlockX() + "_" + coords.getBlockZ();
 	}
 	
 	public static boolean isInstanceAt(Vector loc){
@@ -517,5 +592,111 @@ public class InstanceManager {
 		}
 		
 	}
+	
+	public static RetVal createAndMountEditInstance(String dungeon, String owner){
+		Log.debug("InstanceManager.createAndMountEditInstance");
+		RetVal r = new RetVal();
 		
+		DungeonData d = DungeonManager.getDungeon(dungeon);
+		if(d == null){
+			r.Err("Could not find a dungeon by the name of '"+dungeon+"'!");
+			return r;
+		}
+		
+		InstanceData i = InstanceManager.getInstanceOwnedBy(owner);
+		if(i != null){
+			r.Err("You already have an instance for Dungeon '"+i.dungeonName+"'! You can only have one Instance at a time!");
+			return r;
+		}
+		
+		if(d.state == dungeonState.INVALID) {
+			r.Err("This dungeon appears to have errors - Please check console log!");
+			return r;
+		}
+		
+		d.state = dungeonState.EDITING;
+		
+		RetVal rf = InstanceManager.createInstance(owner, dungeon, true);
+		
+		if(rf.retObj == null || !(rf.retObj instanceof InstanceData) || !rf.status){
+			Log.severe("Failed to create instance!");
+			r.addAll(rf.message);
+			return r;
+		} else {
+			Log.debug("Created Edit Instance Data.");
+		}
+		
+		i = (InstanceData)rf.retObj;
+		
+
+		rf = InstanceManager.mountRegion(i.name);
+		r.retObj = i;
+		
+		if(i.state == instanceState.EDIT && rf.status){
+			Log.debug("Instance State : " + i.getStatusDisplay());
+			r.add("New Edit Instance successfully created and mounted! Instance '" + i.name + "' is up and running!");
+						
+			r.addAll(rf.message);
+			r.tru();
+			return r;
+		} else {
+			Log.severe("Something went wrong mounting instance!");
+			Log.severe("Instance State : " + i.getStatusDisplay());
+			r.addAll(rf.message);
+			
+			InstanceManager.removeOwner(owner);
+			InstanceManager.delInstance(i.name);
+			i = null;
+			
+			return r;
+		}
+	}
+	
+	public static boolean handleBlockBreak(int x, int y, int z, String player){
+		Log.debug("InstanceManager.handleBlockBreak");
+		Vector v = new Vector(x,y,z);
+		String name = getRegionID(v);
+		Log.debug("Checking : " + name);
+		if(isEditing(name)){
+			Log.debug("Removing block at " + v.toString() + " in the schematic!");
+			InstanceData i = getEditInstance(name);
+			if(i != null){
+				//Subtract from our block position, the min point vector - this will give us our
+				//offset into the schematic.
+				Vector offV = v.subtract(i.getBounds().getMinimumPoint());
+				i.getDungeon().getSchematic().setBlock(offV, new BaseBlock(0));
+				
+			}
+		} else {
+			return false;
+		}
+		
+		//TODO : block break flag in instances, check, return true to cancel the event.
+		
+		
+		return false;
+	}
+		
+	public static boolean handleBlockPlace(int x, int y, int z, String player, int ID, int meta){
+		Log.debug("InstanceManager.handleBlockPlace");
+		Vector v = new Vector(x,y,z);
+		String name = getRegionID(v);
+		Log.debug("Checking : " + name);
+		if(isEditing(name)){
+			Log.debug("Placing block ("+ID + ":" +meta+ ") at " + v.toString() + " in the schematic!");
+			InstanceData i = getEditInstance(name);
+			if(i != null){
+				//Subtract from our block position, the min point vector - this will give us our
+				//offset into the schematic.
+				Vector offV = v.subtract(i.getBounds().getMinimumPoint());
+				i.getDungeon().getSchematic().setBlock(offV, new BaseBlock(ID, meta));
+				
+			}
+			
+			
+		} else {
+			return false;
+		}
+		return false;
+	}
 }

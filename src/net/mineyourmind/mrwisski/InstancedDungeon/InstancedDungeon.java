@@ -338,6 +338,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	@Override
 	public void onDisable() {
 		DungeonManager.saveDungeons();
+		InstanceManager.saveInstances();
 		this.enabled = false;
 		//Unregister our events listener.
 		HandlerList.unregisterAll(eListener);
@@ -352,12 +353,13 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	}
 		
 	public void onStart(){
+		Log.debug("onStart()");
 
 		iDungeon = mw.getApi().getWorld(Config.dimension);
 		
 		if(iDungeon == null && mw.getApi().isWorldExisting(Config.dimension) == false){
 			if(Config.makeDim){
-				Log.info("Creating InstancedDungeon Dimension!");
+				Log.debug("Creating InstancedDungeon Dimension!");
 				getServer().dispatchCommand(getServer().getConsoleSender(), "mw create " + Config.dimension + " " + Config.generator); 
 				iDungeon = mw.getApi().getWorld(Config.dimension);
 				if(iDungeon != null){
@@ -380,13 +382,13 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 					Log.error("Please run /mw create " + Config.dimension + " " + Config.generator);
 				}
 			} else {
-				Log.info("iDungeon Dimension not found : Please run /mw create " + Config.dimension + " " + Config.generator);
+				Log.info("iDungeon Dimension not found, and I'm configured not to create it for you : Please run /mw create " + Config.dimension + " " + Config.generator);
 				Log.info("Then, please follow the directions for loading this dimension!");
 			}
 		} else {
-			Log.info("Found InstancedDungeon Dimension!");
+			Log.debug("Found InstancedDungeon Dimension!");
 			if(iDungeon.isLoaded()){
-				Log.info("Dimension is loaded!");
+				Log.debug("Dimension is loaded!");
 			} else {
 				Log.error("Please edit your server config files to auto-load, and keep loaded, the " + Config.dimension + " dimension!");
 			}
@@ -492,6 +494,14 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
     		e.printStackTrace();
     	}
     }
+    
+	///////////////////////////////////////////////////////////////////////////////////
+	// METHODS FROM FUNCTIONSBRIDGE
+	///////////////////////////////////////////////////////////////////////////////////
+	// This is all Bukkit specific stuff that we don't want floating around in our
+    // classes when we go porting this plugin to Sponge, or other server techs.
+	///////////////////////////////////////////////////////////////////////////////////
+
 
 	@Override
 	public boolean weSchematicExists(String filename) {
@@ -538,6 +548,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 
 	@Override
 	public UUID getUUID(String player) {
+		Log.debug("InstancedDungeon.getUUID");
 		if(server.getPlayer(player) == null){
 			return server.getOfflinePlayer(player).getPlayer().getUniqueId();
 		} else {
