@@ -100,49 +100,51 @@ public class CommandDungeon implements CommandFunctor {
 		}
 
 		Log.debug("Getting Dungeon state.");
-		if(d.state != dungeonState.EDITING){
-			Log.debug("Dungeon is not in EDITING state!");
-			r.Err("Dungeon needs to be in dungeon state EDITING.");
+		if(d.state != dungeonState.EDITING && d.state != dungeonState.PREPPED){
+			Log.debug("Dungeon is not in EDITING or PREPPED state!");
+			r.Err("Dungeon needs to be in dungeon state EDITING or PREPPED, Dungeon is in state '"+dungeonState.toString(d.state)+"'!");
 			return r;
 		}
 		
-		Log.debug("Dungeon state IS in EDITING - checking instance.");
+		Log.debug("Dungeon state IS valid - checking for edit instance.");
 		InstanceData i = InstanceManager.getEditInstanceForDungeon(d.name);
-		if(i == null){
+		if(i == null && d.state == dungeonState.EDITING){
 			Log.debug("Error : Dungeon '" +d.name+"' is in state EDITING, but no edit Instance found!");
-			r.add("Found dungeon in EDITING state, with no matching edit Instance - Assuming i'm a moron, and didn't clean something up. ^_^");
+			r.add("Found dungeon in EDITING state, with no matching edit Instance - You may be losing data on the changes you made!!");
 		}
 		
-		Log.debug("Instance is valid - checking instance state : " + instanceState.toString(i.state));
-		if(i.state != instanceState.EDIT){
-			Log.debug("Instance is not in state EDIT!");
-			r.Err("Instance requires to be in state EDIT! It's not!");
+		if(i != null){
+			Log.debug("Instance is valid - checking instance state : " + instanceState.toString(i.state));
+			if(i.state != instanceState.EDIT){
+				Log.debug("Instance is not in state EDIT!");
+				r.Err("Instance requires to be in state EDIT! It's not!");
+			}			
+		
+			//NOW we need to finish it up, and save out the schematic!
+			Log.debug("Saving instance out.");
+			RetVal rf = DungeonManager.saveSchematic(d);
+			if(!rf.status){
+				Log.debug("Saving FAILED.");
+				r.addAll(rf.message);
+				return r;
+			} else {
+				Log.debug("Save success!");
+			}
+		
+			Log.debug("Instance is in EDIT state - unmounting region.");
+			rf = InstanceManager.unmountRegion(i.name);
+			if(!rf.status){
+				r.addAll(rf.message);
+				r.Err("Failed to unmount edit Instance for dungeon '"+d.name+"' at instance '"+i.name+"'!");
+				i.state = instanceState.INVALID;
+			} else {
+				r.add("Edit Instance sucessfully removed from the world!");
+				i.state = instanceState.RELEASED;
+				Log.debug("Deleting instance data.");
+				InstanceManager.delInstance(i.name);
+			}
 		}
 		
-		//NOW we need to finish it up, and save out the schematic!
-		Log.debug("Saving instance out.");
-		RetVal rf = DungeonManager.saveSchematic(d);
-		if(!rf.status){
-			Log.debug("Saving FAILED.");
-			r.addAll(rf.message);
-			return r;
-		} else {
-			Log.debug("Save success!");
-		}
-		
-		Log.debug("Instance is in EDIT state - unmounting region.");
-		rf = InstanceManager.unmountRegion(i.name);
-		if(!rf.status){
-			r.addAll(rf.message);
-			r.Err("Failed to unmount edit Instance for dungeon '"+d.name+"' at instance '"+i.name+"'!");
-			i.state = instanceState.INVALID;
-		} else {
-			r.add("Edit Instance sucessfully removed from the world!");
-			i.state = instanceState.RELEASED;
-			Log.debug("Deleting instance data.");
-			InstanceManager.delInstance(i.name);
-		}
-					
 		d.state = dungeonState.READY;
 		r.add("Dungeon '" + d.name + "' has been finalized! It is now ready for instancing!");
 		r.tru();

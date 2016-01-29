@@ -93,9 +93,9 @@ public class InstanceManager {
 	}
 	
 	public static InstanceData getEditInstanceForDungeon(String dungeon){
-		for(InstanceData d : editInstances.values()){
-			if(d.dungeonName == dungeon){
-				return d;
+		for(InstanceData i : editInstances.values()){
+			if(i.dungeonName == dungeon){
+				return i;
 			}
 		}
 		
@@ -494,6 +494,9 @@ public class InstanceManager {
 					Log.debug("Loaded Instance '" + d.name + "'");
 					instances.put(d.name, d);
 					ownerInstances.put(d.getUUID(), d);
+					if(d.state == instanceState.EDIT){
+						editInstances.put(d.name, d);
+					}
 				} else {
 					Log.severe("Failed to load instance : '" + line + "'!");
 					r.IntErr("Failed to read an instance!");

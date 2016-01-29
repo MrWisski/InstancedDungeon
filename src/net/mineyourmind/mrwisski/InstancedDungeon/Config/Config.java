@@ -26,10 +26,10 @@ public class Config {
 		
 		name = "Instanced Dungeon";
 		command = "id";
-		tcol = "§2";
-		ecol = "§c";
-		bcol = "§f";
-		header = tcol + "[§4Instanced§8Dungeon"+ tcol + "]";
+		tcol = "Â§2";
+		ecol = "Â§c";
+		bcol = "Â§f";
+		header = tcol + "[Â§4InstancedÂ§8Dungeon"+ tcol + "]";
 		
 	}
 
@@ -37,11 +37,11 @@ public class Config {
 	public static String name = "Instanced Dungeon";
 	public static String command = "id";
 	//Text Color
-	public static String tcol = "§2";
-	public static String ecol = "§c";
-	public static String bcol = "§f";
+	public static String tcol = "Â§2";
+	public static String ecol = "Â§c";
+	public static String bcol = "Â§f";
 	//What we should display before all output.
-	public static String header = tcol + "[§4Instanced§8Dungeon"+ tcol + "]";
+	public static String header = tcol + "[Â§4InstancedÂ§8Dungeon"+ tcol + "]";
 	public static String pathToDungeons = File.separator + "dungeons" + File.separator;
 	public static String pathToInstances = File.separator + "instances" + File.separator;
 	
