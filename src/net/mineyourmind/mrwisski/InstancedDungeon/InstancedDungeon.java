@@ -72,7 +72,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	
 	public WorldEditPlugin worldEdit = null;
 	public WorldGuardPlugin worldGuard = null;
-	public MultiWorldPlugin mw = null;
+	public static MultiWorldPlugin mw = null;
 	public MultiWorldAPI mwAPI = null;
 	public PluginMain awe = null;
 	
@@ -313,12 +313,6 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 			return;
 		}
 		
-		//Setup our events
-		this.eListener = new EventListener(this);
-		this.cHandler = new HandleCommand(this);
-		server.getPluginManager().registerEvents(eListener, this);
-		this.getCommand(Config.command).setExecutor(cHandler);
-		
 		//This will only run once the server is full started.
 		getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable()
 	    {		
@@ -408,6 +402,12 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		if(InstanceManager.loadInstances().status){
 			Log.warning("Errors detected reading Instances Data - Check the console for errors!");
 		}
+		
+		//Setup our events
+		this.eListener = new EventListener(this);
+		this.cHandler = new HandleCommand(this);
+		server.getPluginManager().registerEvents(eListener, this);
+		this.getCommand(Config.command).setExecutor(cHandler);
 	}
 	
 	///////////////////////////////////////////////////////////////////////////////////
@@ -622,6 +622,10 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		aes.setAsyncForced(true);
 		
 		return aes;
+	}
+	
+	public static BukkitWorld getIDungeonDim(){
+		return new BukkitWorld(mw.getApi().getWorld(Config.dimension).getBukkitWorld());
 	}
 	
 

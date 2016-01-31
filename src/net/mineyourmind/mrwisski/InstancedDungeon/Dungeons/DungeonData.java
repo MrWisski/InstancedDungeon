@@ -63,6 +63,8 @@ public class DungeonData extends CSVable{
 	public String templateLoc = "";
 	//The finished Dungeon Schematic!
 	public String schematicLoc = "";
+	//The location of any Edit-state schematic
+	public String editSchematicLoc = "";
 	//The state of this current dungeon
 	public int state = dungeonState.INVALID;
 	
@@ -78,6 +80,7 @@ public class DungeonData extends CSVable{
 	
 	private CuboidClipboard template = null;
 	private CuboidClipboard schematic = null;
+	private CuboidClipboard editSchematic = null;
 	
 	private InstanceData editInst = null;
 	
@@ -116,6 +119,11 @@ public class DungeonData extends CSVable{
 	
 	public CuboidClipboard getSchematic(){return schematic;}
 	
+	public void setEditSchematic(CuboidClipboard editschem){
+		Log.debug("DungeonData.setEditSchematic");
+		editSchematic = editschem;		
+	}
+	public CuboidClipboard getEditSchematic(){return editSchematic;}
 
 	public void setSpawn(int x, int y, int z, float f, float g){
 		this.spawnX = x;

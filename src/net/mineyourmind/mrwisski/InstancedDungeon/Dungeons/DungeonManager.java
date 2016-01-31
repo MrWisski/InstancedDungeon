@@ -10,14 +10,8 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Set;
-import java.util.logging.Logger;
-
 import org.apache.commons.lang.StringUtils;
 import org.bukkit.Material;
-import org.primesoft.asyncworldedit.worldedit.AsyncCuboidClipboard;
-import org.primesoft.asyncworldedit.worldedit.AsyncEditSession;
-import org.primesoft.asyncworldedit.worldedit.AsyncEditSessionFactory;
-
 import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.worldedit.CuboidClipboard;
 import com.sk89q.worldedit.EditSession;
@@ -27,14 +21,13 @@ import com.sk89q.worldedit.blocks.BaseBlock;
 import com.sk89q.worldedit.bukkit.BukkitWorld;
 import com.sk89q.worldedit.data.DataException;
 import com.sk89q.worldedit.regions.CuboidRegion;
-import com.sk89q.worldedit.regions.Region;
-import com.sk89q.worldedit.schematic.SchematicFormat;
 
 import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
 import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 import net.mineyourmind.mrwisski.InstancedDungeon.MCEditExtendedSchematicFormat;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData.dungeonState;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.AsyncManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.RetVal;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Util;
@@ -42,8 +35,12 @@ import net.mineyourmind.mrwisski.InstancedDungeon.Util.Util;
 public class DungeonManager {
 	//A Place to store all our instances of this dungeon.
 	private static HashMap<String, DungeonData> dungeons = new HashMap<String,DungeonData>();
+	//A place to store our pending async edits
+	private static HashMap<DungeonData, InstanceData> pastes = new HashMap<DungeonData, InstanceData>();
+	
 	public static DungeonManager instance = null;
 	public static FunctionsBridge bridge = null;
+	public static AsyncManager asm = new AsyncManager();
 	static MCEditExtendedSchematicFormat mcee = new MCEditExtendedSchematicFormat();
 	
 	public static String test(String name){
@@ -101,7 +98,6 @@ public class DungeonManager {
 		try {
 			cc.paste(es, where, true);
 		} catch (MaxChangedBlocksException e) {
-			// TODO Auto-generated catch block
 			r.message.add("Too many blocks! Please using a smaller schematic!");
 			e.printStackTrace();
 			return r;
@@ -112,9 +108,8 @@ public class DungeonManager {
 		return r;
 	}
 	
-	@SuppressWarnings("deprecation")
-	public static RetVal pasteSchematic(String name, Vector where){
-		Log.debug("DungeonManager.pasteSchematic - " + name + ", " + Util.vToStr(where));
+	public static RetVal pasteSchematic(String name, InstanceData i){
+		Log.debug("DungeonManager.pasteSchematic - " + name + ", " + Util.vToStr(i.getOrigin()));
 		RetVal r = new RetVal();
 
 		DungeonData d = DungeonManager.getDungeon(name);
@@ -123,38 +118,12 @@ public class DungeonManager {
 			return r;
 		}
 		
-				
-		EditSession es = bridge.getAsyncEditSession();
-		es.setFastMode(true);
-				
-		File f = new File(bridge.getDataDir(),Config.pathToDungeons + d.templateLoc );
+		//So that we can track when a dungeon is done pasting.
+		pastes.put(d, i);
+		asm.pasteClipboard(i, i.getOrigin());
 		
-		CuboidClipboard cc;
-		AsyncCuboidClipboard acc;
-		try {
-			cc = mcee.load(f);
-			
-			
-		} catch (IOException | DataException e) {
-			e.printStackTrace();
-			r.IntErr("Error loading schematic!");
-			return r;
-		}
-		
-		try {
-			acc = new AsyncCuboidClipboard("InstancedDungeons", cc);
-			//acc.paste(arg0, arg1, arg2, arg3);
-			acc.paste(es, where, true);
-		} catch (MaxChangedBlocksException e) {
-			// TODO Auto-generated catch block
-			r.Err("Too many blocks! try using a smaller schematic!");
-			e.printStackTrace();
-			return r;
-		}
-		//Force the chunk to load up so worldedit will do the paste.
-		bridge.loadChunk(Config.dimension, where.getBlockX(), where.getBlockY(), where.getBlockZ());
-		
-		r.status = true;
+		r.add("Dungeon Instance is being prepared - You will be teleported when it is ready!");
+		r.tru();
 		return r;
 	}
 	
@@ -175,9 +144,9 @@ public class DungeonManager {
 		}
 		bridge.loadChunk(Config.dimension, MinLocation.getBlockX(), MinLocation.getBlockY(), MinLocation.getBlockZ());
 		try {
+			
 			es.setBlocks(cr, block);
 		} catch (MaxChangedBlocksException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		Log.debug("Cleared area successfully!");
@@ -263,6 +232,7 @@ public class DungeonManager {
 		return r;
 	}
 	
+	//Sets the Schematic, and the Edit Schematic.
 	public static RetVal setSchematic(DungeonData d){
 		Log.debug("DungeonManager.setSchematic");
 		RetVal r = new RetVal();
@@ -281,6 +251,16 @@ public class DungeonManager {
 				e.printStackTrace();
 				return r;
 			}
+		}
+		//If we've got an edit schematic location set, we'll set that here as well.
+		if(d.editSchematicLoc != ""){
+			try {
+				d.setEditSchematic(mcee.load(new File(bridge.getDataDir(),Config.pathToDungeons + d.editSchematicLoc )));
+			} catch (DataException | IOException e) {
+				r.IntErr("Error reading edit schematic from disk!");
+				e.printStackTrace();
+				return r;
+			}			
 		}
 		r.status = true;
 		return r;
@@ -309,12 +289,30 @@ public class DungeonManager {
 			File f = new File(bridge.getDataDir(),Config.pathToDungeons + d.schematicLoc );
 			mcee.save(d.getSchematic(), f);
 		} catch (IOException | DataException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 			r.Err("Failed to save out schematic : " + d.schematicLoc);
 			return r;
 		}
 		r.add("Saved out schematic '"+d.schematicLoc+"'!");
+		r.tru();
+		return r;
+		
+	}
+	
+	//Just saves out the currently stored editing clipboard - needed for Edit Dungeon saving.
+	public static RetVal saveEditSchematic(DungeonData d){
+		Log.debug("DungeonManager.saveEditSchematic");
+		RetVal r = new RetVal();
+		
+		try {
+			File f = new File(bridge.getDataDir(),Config.pathToDungeons + d.editSchematicLoc );
+			mcee.save(d.getEditSchematic(), f);
+		} catch (IOException | DataException e) {
+			e.printStackTrace();
+			r.Err("Failed to save out schematic : " + d.schematicLoc);
+			return r;
+		}
+		r.add("Saved out edit schematic '"+d.editSchematicLoc+"'!");
 		r.tru();
 		return r;
 		
@@ -364,7 +362,7 @@ public class DungeonManager {
 					Vector v = new Vector(x,y,z);
 					BaseBlock b = t.getPoint(v);
 					
-					Material m = Material.getMaterial(b.getId());
+					//Material m = Material.getMaterial(b.getId());
 					//CompoundTag tag = b.getNbtData();
 					/*
 					if(tag != null){
@@ -443,6 +441,10 @@ public class DungeonManager {
 		    	bw.write(s);
 		    	bw.newLine();
 		    	c++;
+		    	//if we're editing, we definately want to save out the state of the edit schematic
+		    	if(dat.editSchematicLoc != ""){
+		    		DungeonManager.saveEditSchematic(dat);
+		    	}
 		    	
 		    }
 		    r.add("Read in " + c + " dungeons!");
@@ -478,7 +480,6 @@ public class DungeonManager {
 				r.status = true;
 			}
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
@@ -531,4 +532,37 @@ public class DungeonManager {
 			return r;
 		}
 	}
+	
+	//Saves the current Edit Schematic to the regular schematic, and cleans up edit data.
+	public static RetVal applyEditSchematic(DungeonData d){
+		Log.debug("DungeonManager.applyEditSchematic");
+		RetVal r = new RetVal();
+		
+		CuboidClipboard edit = d.getEditSchematic();
+		
+		//We'll go ahead and backup the pre-edit schematic to the file the edit schematic used to be
+		try {
+			File f = new File(bridge.getDataDir(),Config.pathToDungeons + d.editSchematicLoc );
+			mcee.save(d.getSchematic(), f);
+		} catch (IOException | DataException e) {
+			e.printStackTrace();
+			r.Err("Failed to save out pre-edit schematic : " + d.editSchematicLoc);
+			return r;
+		}
+		d.setEditSchematic(null);
+		d.editSchematicLoc = "";
+		d.setSchematic(edit);
+		
+		r.add("Saved out pre-edit schematic to '"+d.editSchematicLoc+"'!");
+		r.tru();
+		return r;
+		
+	}
+	
+	public static void notifyPasteDone(InstanceData i){
+		Log.info("DungeonManager.NotifyPasteDone("+i.name+")");
+		InstanceManager.notifyInstanceReady(i);
+	}
+	
+	
 }

@@ -3,6 +3,7 @@ package net.mineyourmind.mrwisski.InstancedDungeon.Commands;
 import java.util.ArrayList;
 import java.util.Set;
 
+import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
@@ -48,12 +49,14 @@ public class CommandList implements CommandFunctor {
 
 	@Override
 	public ArrayList<String> getBriefHelp() {
-		return 	new ArrayList<String>();
+		ArrayList<String> m = new ArrayList<String>();
+		m.add("list " + Config.bcol + "- Lists all available dungeons and instances.");
+		return 	m;
 	}
 
 	@Override
 	public String getPerm() {
-		return null;
+		return "instanceddungeon.list";
 	}
 
 	@Override

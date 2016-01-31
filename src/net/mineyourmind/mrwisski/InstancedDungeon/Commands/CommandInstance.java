@@ -1,12 +1,7 @@
 package net.mineyourmind.mrwisski.InstancedDungeon.Commands;
 
 import java.util.ArrayList;
-import java.util.logging.Logger;
-
-import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
-import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceData;
-import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceData.instanceState;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.RetVal;
@@ -21,7 +16,7 @@ public class CommandInstance implements CommandFunctor {
 		arg.remove(0);	//Remove 'instance' from the arguments list.
 		if(arg.isEmpty()){
 			Log.debug("arg is empty.");
-			r.addAll(getBriefHelp());
+			r.addAll(getFullHelp());
 			return r;
 		}
 		
@@ -36,7 +31,8 @@ public class CommandInstance implements CommandFunctor {
 			case "remove":
 				return InstanceManager.unmountRegion(arg.get(1));
 			default:
-				r.addAll(getBriefHelp());
+				r.addAll(getFullHelp());
+				r.Err("Couldn't find command '"+arg.get(0)+"'!");
 				return r;
 		}
 	}
@@ -74,8 +70,12 @@ public class CommandInstance implements CommandFunctor {
 	@Override
 	public ArrayList<String> getFullHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("Commands for interacting with a Dungeon Instance.");
-		
+		m.add("instance create <Dungeon Name> " + Config.bcol + "- Creates a new Dungeon Instance, and teleports you to it as the Owner!");
+		m.add("instance create <Dungeon Name> <Player Name>" + Config.bcol + "- Creates a new Dungeon Instance, and teleports the specificied player to it as the Owner!");				
+		m.add("instance unmount <Instance Name> " + Config.bcol + "- Removes an existing Dungeon Instance from the server, and teleports you to it as the Owner!");
+		m.add("instance portal <Dungeon Name> " + Config.bcol + "- Creates a portal " +Config.ecol+ "from a worldedit selection"+Config.bcol+" that acts like 'instance create' on any player that goes through it.");
+		m.add("instance removeportal <Dungeon Name> " + Config.bcol + "- Removes a portal" +Config.ecol+ "using a worldedit selection"+Config.bcol+".");
+		m.add("instance remove <Instance Name> " + Config.bcol + "- Removes a specific Instance - All players inside will be teleported to spawn, the blocks removed, and the Instance flagged as RELEASED.");
 		
 		return m;
 	}
@@ -83,14 +83,7 @@ public class CommandInstance implements CommandFunctor {
 	@Override
 	public ArrayList<String> getBriefHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("list " + Config.bcol + "- Displays a list of all current Dungeon Instances.");
-		m.add("help " + Config.bcol + "- Displays the full help for Instances!");
-		m.add("instance create <Dungeon Name> " + Config.bcol + "- Creates a new Dungeon Instance, and teleports you to it as the Owner!");
-		m.add("instance create <Dungeon Name> <Player Name>" + Config.bcol + "- Creates a new Dungeon Instance, and teleports the specificied player to it as the Owner!");				
-		m.add("instance unmount <Instance Name> " + Config.bcol + "- Removes an existing Dungeon Instance from the server, and teleports you to it as the Owner!");
-		m.add("instance portal <Dungeon Name> " + Config.bcol + "- Creates a portal " +Config.ecol+ "from a worldedit selection"+Config.bcol+" that acts like 'instance create' on any player that goes through it.");
-		m.add("instance removeportal <Dungeon Name> " + Config.bcol + "- Removes a portal" +Config.ecol+ "using a worldedit selection"+Config.bcol+".");
-		m.add("instance remove <Instance Name> " + Config.bcol + "- Removes a specific Instance - All players inside will be teleported to spawn, the blocks removed, and the Instance flagged as RELEASED.");
+		m.add("instance " + Config.bcol + "- Commands relating to the creation and manipulation of Instances.");
 
 		return m;
 		//Config.header + "" + Config.bcol + "- " +;

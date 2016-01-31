@@ -47,22 +47,21 @@ public class CommandMisc implements CommandFunctor {
 	public RetVal execute(ArrayList<String> arg, String pName) {
 		RetVal r = new RetVal();
 		FunctionsBridge.itemInfo i = bridge.getPlayerItemInHand(pName);
-		message = "Item in hand : " + i.name + "x" + i.count + " :: " + i.material;
+		r.add("Item in hand : " + i.name + "x" + i.count + " :: " + i.material);
 		return r;
 	}
 
 	@Override
 	public ArrayList<String> getFullHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("Just some misc functions that don't fit anywhere else!");
-		// TODO Auto-generated method stub
+		m.add("misc itemhand " + Config.bcol + "- returns the material name of the item in your hand!");
 		return m;
 	}
 
 	@Override
 	public ArrayList<String> getBriefHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("misc itemhand " + Config.bcol + "- returns the material name of the item in your hand!");
+		m.add("misc " + Config.bcol + "- Just some misc functions that don't fit anywhere else!");
 		return m;
 	}
 

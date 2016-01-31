@@ -6,6 +6,7 @@ import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceManager;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.RetVal;
 
 public class CommandSave implements CommandFunctor {
@@ -20,16 +21,20 @@ public class CommandSave implements CommandFunctor {
 		r.add("Saving Dungeons...");
 		RetVal ret = DungeonManager.saveDungeons();
 		if(ret.status){
-			r.add("Success!");
+			r.add("...Success!");
 		} else {
-			r.Err("Failure? Check console!");
+			Log.error("Failed to save out Dungeon data! See above for details!");
+			r.addAll(ret.message);
+			r.Err("Errors detected saving Dungeons!");
 		}
 		r.add("Saving Instances...");
 		ret = InstanceManager.saveInstances();
 		if(ret.status){
-			r.add("Success!");
+			r.add("...Success!");
 		} else {
-			r.Err("Failure? Check console!");
+			r.addAll(ret.message);
+			Log.error("Failed to save out Instance data! See above for details!");
+			r.Err("Errors detected saving Instances!");
 		}
 		
 		return r;
@@ -43,14 +48,14 @@ public class CommandSave implements CommandFunctor {
 	@Override
 	public ArrayList<String> getFullHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("Saves out Dungeon & Instance settings files to disk.");
+		m.add("Saves out Dungeon & Instance settings to disk.");
 		return m;
 	}
 
 	@Override
 	public ArrayList<String> getBriefHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("save " + Config.bcol + "- Saves current settings to disk.");
+		m.add("save " + Config.bcol + "- Saves all Instance and Dungeon settings to disk.");
 		return m;
 	}
 

@@ -1,16 +1,7 @@
 package net.mineyourmind.mrwisski.InstancedDungeon.Commands;
 
 import java.util.ArrayList;
-import java.util.logging.Logger;
-
-import org.bukkit.command.CommandSender;
-
-import com.sk89q.worldedit.EditSession;
-import com.sk89q.worldedit.Location;
-import com.sk89q.worldedit.Vector;
-
 import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
-import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData.dungeonState;
@@ -38,7 +29,7 @@ public class CommandDungeon implements CommandFunctor {
 		
 		if(arg.isEmpty()){
 			Log.debug("arg is empty.");
-			r.addAll(getBriefHelp());
+			r.addAll(getFullHelp());
 			r.status = true;
 			return r;
 		}
@@ -69,7 +60,7 @@ public class CommandDungeon implements CommandFunctor {
 				return DungeonManager.unReadyDungeon(arg.get(0));
 			default:
 				Log.debug("default handler.");
-				r.addAll(getBriefHelp());
+				r.addAll(getFullHelp());
 				r.Err("Couldn't find command '"+arg.get(0)+"'!");
 				r.status = false;
 				return r;
@@ -110,21 +101,30 @@ public class CommandDungeon implements CommandFunctor {
 		InstanceData i = InstanceManager.getEditInstanceForDungeon(d.name);
 		if(i == null && d.state == dungeonState.EDITING){
 			Log.debug("Error : Dungeon '" +d.name+"' is in state EDITING, but no edit Instance found!");
-			r.add("Found dungeon in EDITING state, with no matching edit Instance - You may be losing data on the changes you made!!");
+			r.Err("Found dungeon in EDITING state, with no matching edit Instance - You may be losing data on the changes you made!!");
 		}
 		
 		if(i != null){
 			Log.debug("Instance is valid - checking instance state : " + instanceState.toString(i.state));
 			if(i.state != instanceState.EDIT){
 				Log.debug("Instance is not in state EDIT!");
-				r.Err("Instance requires to be in state EDIT! It's not!");
+				r.Err("Instance required to be in state EDIT! It's not!");
+				//I'm pretty sure this isn't a critical error..and if it is, it will get caught
+				//later on.
 			}			
 		
 			//NOW we need to finish it up, and save out the schematic!
-			Log.debug("Saving instance out.");
-			RetVal rf = DungeonManager.saveSchematic(d);
+			Log.debug("Swapping edit schematic for main schematic!");
+			RetVal rf = DungeonManager.applyEditSchematic(d);
 			if(!rf.status){
-				Log.debug("Saving FAILED.");
+				Log.error("Failed to swap out edit schematic to main schematic!");
+				r.addAll(rf.message);
+				return r;
+			}
+			Log.debug("Saving instance out.");
+			rf = DungeonManager.saveSchematic(d);
+			if(!rf.status){
+				Log.error("Failed to save schematic for dungeon '"+d.name+"'!");
 				r.addAll(rf.message);
 				return r;
 			} else {
@@ -272,26 +272,21 @@ public class CommandDungeon implements CommandFunctor {
 	@Override
 	public ArrayList<String> getFullHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("Allows creation and manipulation of Dungeons.");
-		m.add(Config.bcol + "First, 'create' a new dungeon. This assigns a template that you can edit to personalize each instance.");
-		m.add(Config.bcol + "Then 'prep' the dungeon - this clears out anything that won't copy (spawners), removes mobs, and constructs a shell around the template. At this point, a Worldedit Schematic of the prepped dungeon will be saved, and further editing will work from this schematic!");
-		m.add(Config.bcol + "Once you 'save' the dungeon, you're ready to start editing!");
-		m.add(Config.bcol + "In 'edit' mode, you'll get an edit-instance for your dungeon - its NOT ready for use yet. Stand where you want players to spawn in, and 'setspawn'.");
-		m.add(Config.bcol + "When you're finished, just 'finalize' the dungeon, and it will be ready to accept instancing!");
+		m.add("dungeon create <dungeon name> <template name>" + Config.bcol + "- Create a brand new dungeon and assigns a WorldEdit Schematic 'template' to a dungeon."); 
+		m.add("dungeon prep <dungeon name> " + Config.bcol + "- Clears out spawners and mobs, builds the instance walls - prepares dungeon for Editing");
+		//m.add("dungeon entrance <dungeon name> " + Config.bcol + "- Sets the Spawn-in area for this dungeon. Required before readying!");
+		m.add("dungeon save <dungeon name> " + Config.bcol + "- Saves the dungeon schematic to plugins/InstancedDungeon/schematics");
+		m.add("dungeon edit <dungeon name> " + Config.bcol + "- Spawns in an editable instance for this dungeon. Records block breaks/placement. Allows Edit commands."); 
+		m.add("dungeon finalize <dungeon name> " + Config.bcol + "- Finishes Edit mode (if in edit) on a dungeon, saves the edited schematic out, and marks it as ready to accept instancing.");				
+		m.add("dungeon unready <dungeon name> " + Config.bcol + "- Returns a READY dungeon to PREPPED, so it can be modified.");
+		m.add("dungeon delete <dungeon name> " + Config.bcol + "- Removes a dungeon from the registry, and removes all associated data from disk.");
 		return m;
 	}
 
 	@Override
 	public ArrayList<String> getBriefHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("dungeon " + Config.bcol + "- Shows the dungeon setup help screen.");
-		m.add("dungeon create <dungeon name> <template name>" + Config.bcol + "- Create a brand new dungeon and assigns a WorldEdit Schematic 'template' to a dungeon. Required before prepping!."); 
-		m.add("dungeon prep <dungeon name> " + Config.bcol + "- Clears out spawners and mobs, builds the instance walls. Required before editing!");
-		m.add("dungeon entrance <dungeon name> " + Config.bcol + "- Sets the Spawn-in area for this dungeon. Required before readying!");
-		m.add("dungeon save <dungeon name> " + Config.bcol + "- Saves out a new WorldEdit schematic, ready for tailoring to your needs! You can find this schematic in /InstancedDungeon/schematics");
-		m.add("dungeon edit <dungeon name> " + Config.bcol + "- Spawns in an edit-instance for this dungeon."); 
-		m.add("dungeon unready <dungeon name> " + Config.bcol + "- Returns a READY dungeon to PREPPED, so it can be re-edited.");
-		m.add("dungeon finalize <dungeon name> " + Config.bcol + "- Finishes Edit mode (if in edit) on a dungeon, saves the edited schematic out, and marks it as ready to accept instancing.");				
+		m.add("dungeon " + Config.bcol + "- Commands relating to the manipulation of Dungeons.");
 		return m;
 	}
 

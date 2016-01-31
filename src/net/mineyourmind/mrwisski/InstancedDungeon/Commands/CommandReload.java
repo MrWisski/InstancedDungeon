@@ -4,6 +4,7 @@ import java.util.ArrayList;
 
 import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.RetVal;
 
 public class CommandReload implements CommandFunctor {
@@ -21,6 +22,7 @@ public class CommandReload implements CommandFunctor {
 	@Override
 	public RetVal execute(ArrayList<String> args, String pName) {
 		RetVal r = new RetVal();
+		Log.warning("Configuration reload requested from player '" + pName + "'");
 		r.add("Reloading Plugin and all configs.\n");
 		boolean status = bridge.ConfigReload();
 		if(status){
@@ -61,7 +63,7 @@ public class CommandReload implements CommandFunctor {
 	@Override
 	public ArrayList<String> getBriefHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("reload " + Config.bcol + "- Reloads configuration from disk.");
+		m.add("reload " + Config.bcol + "- Reloads configuration from disk. Dungeon schematics will NOT be removed!");
 		return m;
 	}
 	

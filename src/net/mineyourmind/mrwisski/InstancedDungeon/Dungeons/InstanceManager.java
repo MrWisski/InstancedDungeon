@@ -12,13 +12,10 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.UUID;
 
-import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.Location;
 import com.sk89q.worldedit.Vector;
 import com.sk89q.worldedit.blocks.BaseBlock;
 import com.sk89q.worldedit.bukkit.BukkitWorld;
-import com.sk89q.worldedit.regions.CuboidRegion;
-
 import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
 import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
@@ -93,8 +90,10 @@ public class InstanceManager {
 	}
 	
 	public static InstanceData getEditInstanceForDungeon(String dungeon){
+		Log.debug("getEditInstanceForDungeon");
 		for(InstanceData i : editInstances.values()){
-			if(i.dungeonName == dungeon){
+			Log.debug("Checking instance dungeon name " + i.dungeonName + " against " + dungeon);
+			if(i.dungeonName.equals(dungeon)){
 				return i;
 			}
 		}
@@ -316,7 +315,7 @@ public class InstanceManager {
 			Log.debug("Dungeon State : " + i.getDungeon().getStatusDisplay());
 		}
 		
-		RetVal rf = DungeonManager.pasteSchematic(i.dungeonName, i.getOrigin()); 
+		RetVal rf = DungeonManager.pasteSchematic(i.dungeonName, i); 
 		
 		if(!rf.status){
 			Log.severe("DungeonManager error while attempting to mount Instance '"+i.name+"'!");
@@ -324,30 +323,38 @@ public class InstanceManager {
 			r.Err("Failed to paste schematic! Errors from Dungeon Manager included above!");
 			return r;
 		} else {
-			rf = setProtection(i);
-			if(rf.status){
-				Log.error("Failed to add protection to newly mounted Instance '"+i.name+"'");
-				r.addAll(rf.message);
-				//r.Err("Errors encountered mounting instance! For your protection, this instance will be flagged as unusable!");
-				//TODO : get WG protection working.
-				//i.state = instanceState.INVALID;
-			}
-			
-			Log.debug("Successfully mounted Instance '"+i.name+"'!");
-			if(i.getDungeon().state == dungeonState.EDITING){
-				i.state = instanceState.EDIT;
-			} else {
-				i.state = instanceState.READY;
-			}
-			
+			i.state = instanceState.WAITING; //We're now waiting for the build to be completed!
+			r.add("Your Instance is being prepared! You will be teleported when it is ready!");
 			r.tru();
+			return r;
 			
 		}
-				
-		return r;
 	}
 	
-	
+	public static void notifyInstanceReady(InstanceData i){
+		RetVal rf = new RetVal();
+		//InstanceData i = InstanceManager.pendingInstances.get(d);
+		
+		
+		rf = setProtection(i);
+		if(rf.status){
+			Log.error("Failed to add protection to newly mounted Instance '"+i.name+"'");
+			//r.Err("Errors encountered mounting instance! For your protection, this instance will be flagged as unusable!");
+			//TODO : get WG protection working.
+			//i.state = instanceState.INVALID;
+		}
+		
+		Log.debug("Successfully mounted Instance '"+i.name+"'!");
+		if(i.getDungeon().state == dungeonState.EDITING){
+			i.state = instanceState.EDIT;
+		} else {
+			i.state = instanceState.READY;
+		}
+		
+		sendPlayerToInstance(i.owner, i);
+
+		
+	}
 	
 	private static RetVal setProtection(InstanceData i){
 		Log.debug("InstanceManager.setProtection");
@@ -572,12 +579,13 @@ public class InstanceManager {
 		
 		i = (InstanceData)rf.retObj;
 		
-		//TODO - This will have to be asynch somehow. :(
+		//This is all handled properly through AsyncWorldEdit now :D
+		
 		rf = InstanceManager.mountRegion(i.name);
-		if(i.state == instanceState.READY && rf.status){
+
+		if(i.state == instanceState.WAITING && rf.status){
+			Log.debug("InstanceManager reports mountRegion succeeded.");
 			Log.debug("Instance State : " + i.getStatusDisplay());
-			r.add("New Instance successfully created and mounted! Instance '" + i.name + "' is up and running!");
-			rf = InstanceManager.sendPlayerToInstance(owner, i);
 			
 			r.addAll(rf.message);
 			r.tru();
@@ -600,6 +608,7 @@ public class InstanceManager {
 		Log.debug("InstanceManager.createAndMountEditInstance");
 		RetVal r = new RetVal();
 		
+		//Lets do some checking to make sure we get valid data.
 		DungeonData d = DungeonManager.getDungeon(dungeon);
 		if(d == null){
 			r.Err("Could not find a dungeon by the name of '"+dungeon+"'!");
@@ -618,7 +627,7 @@ public class InstanceManager {
 		}
 		
 		d.state = dungeonState.EDITING;
-		
+		//create an instance, with the edit flag set to TRUE!
 		RetVal rf = InstanceManager.createInstance(owner, dungeon, true);
 		
 		if(rf.retObj == null || !(rf.retObj instanceof InstanceData) || !rf.status){
@@ -631,14 +640,19 @@ public class InstanceManager {
 		
 		i = (InstanceData)rf.retObj;
 		
-
+		//Mount it!
 		rf = InstanceManager.mountRegion(i.name);
 		r.retObj = i;
 		
+		//Check it!
 		if(i.state == instanceState.EDIT && rf.status){
 			Log.debug("Instance State : " + i.getStatusDisplay());
-			r.add("New Edit Instance successfully created and mounted! Instance '" + i.name + "' is up and running!");
-						
+			//r.add("New Edit Instance successfully created and mounted! Instance '" + i.name + "' is up and running!");
+			
+			//Here we need to copy the current dungeon schematic data over to the edit schematic
+			i.getDungeon().editSchematicLoc = "edit_" + i.getDungeon().schematicLoc;
+			i.getDungeon().setEditSchematic(i.getDungeon().getSchematic());
+			
 			r.addAll(rf.message);
 			r.tru();
 			return r;
@@ -647,6 +661,7 @@ public class InstanceManager {
 			Log.severe("Instance State : " + i.getStatusDisplay());
 			r.addAll(rf.message);
 			
+			//We failed, so lets roll back the changes we made :(
 			InstanceManager.removeOwner(owner);
 			InstanceManager.delInstance(i.name);
 			i = null;
@@ -667,7 +682,7 @@ public class InstanceManager {
 				//Subtract from our block position, the min point vector - this will give us our
 				//offset into the schematic.
 				Vector offV = v.subtract(i.getBounds().getMinimumPoint());
-				i.getDungeon().getSchematic().setBlock(offV, new BaseBlock(0));
+				i.getDungeon().getEditSchematic().setBlock(offV, new BaseBlock(0));
 				
 			}
 		} else {
@@ -692,7 +707,7 @@ public class InstanceManager {
 				//Subtract from our block position, the min point vector - this will give us our
 				//offset into the schematic.
 				Vector offV = v.subtract(i.getBounds().getMinimumPoint());
-				i.getDungeon().getSchematic().setBlock(offV, new BaseBlock(ID, meta));
+				i.getDungeon().getEditSchematic().setBlock(offV, new BaseBlock(ID, meta));
 				
 			}
 			

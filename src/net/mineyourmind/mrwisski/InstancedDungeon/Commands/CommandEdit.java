@@ -27,7 +27,7 @@ public class CommandEdit implements CommandFunctor {
 		
 		if(arg.isEmpty()){
 			Log.debug("arg is empty.");
-			r.addAll(getBriefHelp());
+			r.addAll(getFullHelp());
 			return r;
 		}
 		
@@ -40,7 +40,8 @@ public class CommandEdit implements CommandFunctor {
 				arg.remove(0);
 				return subEntrance(arg, pName);
 			default:
-				r.addAll(getBriefHelp());
+				r.addAll(getFullHelp());
+				r.Err("Couldn't find command '"+arg.get(0)+"'!");
 				return r;
 		}
 	}
@@ -89,23 +90,20 @@ public class CommandEdit implements CommandFunctor {
 	@Override
 	public ArrayList<String> getFullHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("Implements a number of commands to get your Dungeon fixed, and ready for instancing!");
+		m.add("edit setspawn " + Config.bcol + "- Configures the spawn in point for the Dungeon when Instanced.");
+		m.add("edit setarea " + Config.bcol + "- Changes the Dungeon's size to your current worldedit selection.");
+		m.add("edit setspawner <Mob Name>" + Config.bcol + "- Sets the spawner you're looking at to <Mob Name>.");
+		m.add("edit save " + Config.bcol + "- Saves the current state of the edit schematic.");
+		m.add("edit exit " + Config.bcol + "- Exits and removes the current edit instance without saving the edit data.");
+		
 		return m;
 	}
 
 	@Override
 	public ArrayList<String> getBriefHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("edit help " + Config.bcol + "- Shows the full help page on using Edit.");
-		m.add("edit setspawn " + Config.bcol + "- Configures the spawn in point for the Dungeon.");
-		m.add("edit setarea " + Config.bcol + "- Applies the current selection to the Dungeon's template size");
-		m.add("edit setspawner <Mob Name>" + Config.bcol + "- Sets the spawner you're looking at to <Mob Name>");
-		m.add("edit help " + Config.bcol + "- ");
-		m.add("edit help " + Config.bcol + "- ");
-		m.add("edit save " + Config.bcol + "- Saves the current state of the template.");
-		m.add("edit finalize " + Config.bcol + "- Saves the current state of the template, finalizes it, and removes the Edit Instance.");
-		m.add("edit exit " + Config.bcol + "- Exits and removes the current edit instance.");
-		
+		m.add("edit " + Config.bcol + "- Implements Commands to be used while editing a Dungeon.");
+
 		return m;
 	}
 
