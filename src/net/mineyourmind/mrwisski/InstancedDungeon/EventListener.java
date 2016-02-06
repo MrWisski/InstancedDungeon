@@ -1,14 +1,18 @@
 package net.mineyourmind.mrwisski.InstancedDungeon;
 
+import org.bukkit.Material;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
+import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
 
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 
 
 
@@ -23,6 +27,27 @@ public class EventListener implements Listener {
 		Log.debug("Initialized event listener.");
 		this.plugin = p;
 		
+	}
+	
+	@EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerInteract(final PlayerInteractEvent event) {
+		Log.debug("onPlayerInteract :");
+		Log.debug("With : " + Material.getMaterial(event.getItem().getType().getId()).toString());
+		Log.debug("On : " + event.getClickedBlock().getType().toString());
+		Log.debug("By : " + event.getAction().toString());
+		if(event.getAction() == Action.RIGHT_CLICK_BLOCK){
+			if(Material.getMaterial(event.getItem().getType().getId()).toString().equalsIgnoreCase("THAUMCRAFT_ITEMELDRITCHOBJECT")){
+				Log.debug("Player is using an eldritch tablet!");
+				if(event.getClickedBlock().getType().toString().equalsIgnoreCase("THAUMCRAFT_BLOCKELDRITCH")){
+					Log.debug("Got the location of the eldritch block player is using it on!");
+					Log.debug("Aborting that call, and redirecting to DungeonManager for handling!");
+					event.setCancelled(true);
+					
+					DungeonManager.handleEldritchLock(event.getClickedBlock(), event.getPlayer());
+				}
+				
+			}
+		}
 	}
 	
 	@EventHandler(priority = EventPriority.NORMAL)

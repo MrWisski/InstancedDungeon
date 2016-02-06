@@ -8,8 +8,12 @@ import java.util.UUID;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
+import com.sk89q.worldedit.CuboidClipboard;
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.Location;
+import com.sk89q.worldedit.bukkit.selections.Selection;
+
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.NBTStore;
 
 public interface FunctionsBridge {
 	public boolean ConfigReload();
@@ -39,5 +43,8 @@ public interface FunctionsBridge {
 	public HashMap<Location,String> getAllPlayerLocs(String world);
 	
 	public EditSession getAsyncEditSession();
+	
+	public NBTStore pullNBTDataForSchematic(String playername);
+	public CuboidClipboard pullClipboardFromSchematic(Selection s);
 	
 }

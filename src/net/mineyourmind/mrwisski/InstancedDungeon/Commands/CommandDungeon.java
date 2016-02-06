@@ -1,7 +1,16 @@
 package net.mineyourmind.mrwisski.InstancedDungeon.Commands;
 
+import java.io.IOException;
 import java.util.ArrayList;
+
+import com.sk89q.worldedit.CuboidClipboard;
+import com.sk89q.worldedit.bukkit.selections.CuboidSelection;
+import com.sk89q.worldedit.bukkit.selections.Selection;
+import com.sk89q.worldedit.data.DataException;
+
 import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
+import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
+import net.mineyourmind.mrwisski.InstancedDungeon.MCEditExtendedSchematicFormat;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData.dungeonState;
@@ -40,11 +49,11 @@ public class CommandDungeon implements CommandFunctor {
 				return r;
 			case "create":
 				arg.remove(0);
-				return subCreate(arg);
+				return subCreate(arg, pName);
 			case "delete":
 				arg.remove(0);
 				return subDelete(arg, pName);
-			case "prep":
+			case "prepare":
 				arg.remove(0);
 				return DungeonManager.prepDungeon(arg.get(0));
 			case "save":
@@ -58,6 +67,23 @@ public class CommandDungeon implements CommandFunctor {
 			case "unready":
 				arg.remove(0);
 				return DungeonManager.unReadyDungeon(arg.get(0));
+			case "testTE":
+				Class lock = null;
+				try {
+					lock = Class.forName("thaumcraft.common.tiles.TileEldritchLock");
+				} catch (ClassNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				if(lock == null){
+					r.Err("Couldn't find thaumcraft TileEldritchLock class!");
+					return r;
+				}
+				
+				
+				
+				r.tru();
+				return r;
 			default:
 				Log.debug("default handler.");
 				r.addAll(getFullHelp());
@@ -208,23 +234,27 @@ public class CommandDungeon implements CommandFunctor {
 		return DungeonManager.saveDungeons();
 	}
 	
-	private RetVal subCreate(ArrayList<String> arg){
+	private RetVal subCreate(ArrayList<String> arg, String playername){
 		Log.debug("CommandDungeon.subCreate");
 		RetVal r = new RetVal();
-
-		if(arg.size() < 2){
-			r.Err("Error - Invalid number of arguments! Command is /" + Config.command + " dungeon create <dungeon name> <schematic template>!");
+		
+		String f = "";
+		
+		if(arg.size() == 0){
+			r.Err("Error - Invalid number of arguments! Command is /" + Config.command + " dungeon create <dungeon name> [schematic template]!");
 			return r;
+		} else if(arg.size() == 2){
+			f = arg.get(1);
 		}
 		if(arg.get(0) == ""){
 			r.Err("Error - Invalid argument! Dungeon Name cannot be empty!");
 			return r;
 		}
-		String f = arg.get(1);
-		if(f == ""){
-			r.Err("Error - Invalid argument! Schematic Name cannot be empty!");
-			return r;
-		} else if(!bridge.weSchematicExists(f)){
+		
+		if(f != "" && !bridge.weSchematicExists(f)){
+			//r.Err("Error - Invalid argument! Schematic Name cannot be empty!");
+			//return r;
+		//} else if(!bridge.weSchematicExists(f)){
 			r.Err("Error - Invalid argument! Schematic file not found!");
 			return r;
 		} 
@@ -241,14 +271,41 @@ public class CommandDungeon implements CommandFunctor {
 			return r;
 		}
 		
+		if(f != ""){
+			//Command was run with optional schematic to import.
+			Log.debug("Creating from Template.");
+		} else {
+			Selection s = InstancedDungeon.worldEdit.getSelection(bridge.getPlayer(playername));
+			//CuboidSelection cs = (CuboidSelection) s;
+			if(s == null){
+				r.Err("You must make a WorldEdit selection - That area will be turned into a selection to use for the Dungeon!");
+				DungeonManager.deleteDungeon(arg.get(0));
+				return r;
+			}
+			//We need to pull the schematic out of the players WE selection.
+			Log.debug("Creating dungeon from selection.");
+			f = arg.get(0) + ".schematic";
+			try {
+				MCEditExtendedSchematicFormat.saveFromSelection(s, bridge.getWEditSchematic(f));
+			} catch (IOException | DataException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				Log.error("Failed to capture schematic for dungeon!");
+				r.Err("Failed to capture schematic! :(");
+				DungeonManager.deleteDungeon(arg.get(0));
+				return r;
+			}
+		}
+		
 		d.templateLoc = f;
 		//Load the schematic into the dungeon - very important!
 		rf = DungeonManager.setTemplate(d);
 		if(!rf.status){
 			r.addAll(rf.message);
+			DungeonManager.deleteDungeon(arg.get(0));
 			return r;
 		}
-		
+
 		Log.debug("WorldEdit Schematic '" + f + "' assigned to Dungeon '" + d.name +"'!");
 		
 		Log.debug("Prepping dungeon...");
@@ -262,7 +319,10 @@ public class CommandDungeon implements CommandFunctor {
 		r.add("Created new dungeon '" + d.name + "'!");
 		r.tru();
 		return r;
+
 	}
+	
+	
 	
 	@Override
 	public String getName() {
@@ -272,8 +332,10 @@ public class CommandDungeon implements CommandFunctor {
 	@Override
 	public ArrayList<String> getFullHelp() {
 		ArrayList<String> m = new ArrayList<String>();
-		m.add("dungeon create <dungeon name> <template name>" + Config.bcol + "- Create a brand new dungeon and assigns a WorldEdit Schematic 'template' to a dungeon."); 
-		m.add("dungeon prep <dungeon name> " + Config.bcol + "- Clears out spawners and mobs, builds the instance walls - prepares dungeon for Editing");
+		m.add("dungeon create <dungeon name> <template name>" + Config.bcol + "- Create a brand new dungeon and assigns a WorldEdit Schematic 'template' to a dungeon.");
+		m.add(Config.ecol + "Warning : Do not use the above if your WorldEdit version does not save out NBT data properly!");
+		m.add("dungeon create <dungeon name>" + Config.bcol + "- Create a brand new dungeon from a WE selection - Will create a new, NBT assured schematic called '<dungeon name>.schematic'.");
+		m.add("dungeon prepare <dungeon name> " + Config.bcol + "- Clears out spawners and mobs, builds the instance walls - prepares dungeon for Editing");
 		//m.add("dungeon entrance <dungeon name> " + Config.bcol + "- Sets the Spawn-in area for this dungeon. Required before readying!");
 		m.add("dungeon save <dungeon name> " + Config.bcol + "- Saves the dungeon schematic to plugins/InstancedDungeon/schematics");
 		m.add("dungeon edit <dungeon name> " + Config.bcol + "- Spawns in an editable instance for this dungeon. Records block breaks/placement. Allows Edit commands."); 

@@ -23,6 +23,7 @@ import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.CSVable;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.NBTStore;
 
 public class DungeonData extends CSVable{
 	public static class dungeonState{
@@ -78,11 +79,34 @@ public class DungeonData extends CSVable{
 	private CuboidRegion bounds = new CuboidRegion(new Vector(0,0,0),new Vector(1,1,1));
 	private Vector center = new Vector(0,0,0);
 	
+	private NBTStore tileEnts = null;
+	private NBTStore editTileEnts = null;
+	
 	private CuboidClipboard template = null;
 	private CuboidClipboard schematic = null;
 	private CuboidClipboard editSchematic = null;
 	
 	private InstanceData editInst = null;
+	
+	public NBTStore getTileEnts(){
+		return tileEnts;
+	}
+	
+	public void setTileEnts(NBTStore s){
+		tileEnts = s;
+		Log.debug("Dumping tileents for dungeon '"+name+"'");
+		tileEnts.logContents();
+	}
+	
+	public NBTStore getEditTileEnts(){
+		return editTileEnts;
+	}
+	
+	public void setEditTileEnts(NBTStore s){
+		editTileEnts = s;
+		Log.debug("Dumping edit tileents for dungeon '"+name+"'");
+		editTileEnts.logContents();
+	}
 	
 	public void setTemplate(CuboidClipboard schem){
 		Log.debug("DungeonData.setTemplate");

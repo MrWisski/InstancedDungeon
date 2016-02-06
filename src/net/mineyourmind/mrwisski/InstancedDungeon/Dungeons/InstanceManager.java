@@ -611,17 +611,20 @@ public class InstanceManager {
 		//Lets do some checking to make sure we get valid data.
 		DungeonData d = DungeonManager.getDungeon(dungeon);
 		if(d == null){
+			Log.severe("No dungeon called '"+dungeon+"'!");
 			r.Err("Could not find a dungeon by the name of '"+dungeon+"'!");
 			return r;
 		}
 		
 		InstanceData i = InstanceManager.getInstanceOwnedBy(owner);
 		if(i != null){
+			Log.severe("Instance owner already has an instance! 1 Per Customer!");
 			r.Err("You already have an instance for Dungeon '"+i.dungeonName+"'! You can only have one Instance at a time!");
 			return r;
 		}
 		
 		if(d.state == dungeonState.INVALID) {
+			Log.severe("Dungeon in state INVALID.");
 			r.Err("This dungeon appears to have errors - Please check console log!");
 			return r;
 		}
@@ -631,7 +634,7 @@ public class InstanceManager {
 		RetVal rf = InstanceManager.createInstance(owner, dungeon, true);
 		
 		if(rf.retObj == null || !(rf.retObj instanceof InstanceData) || !rf.status){
-			Log.severe("Failed to create instance!");
+			Log.severe("Recieved a failure error state from InstanceManager.createInstance!");
 			r.addAll(rf.message);
 			return r;
 		} else {
@@ -645,7 +648,7 @@ public class InstanceManager {
 		r.retObj = i;
 		
 		//Check it!
-		if(i.state == instanceState.EDIT && rf.status){
+		if(i.state == instanceState.WAITING && rf.status){
 			Log.debug("Instance State : " + i.getStatusDisplay());
 			//r.add("New Edit Instance successfully created and mounted! Instance '" + i.name + "' is up and running!");
 			
@@ -657,7 +660,7 @@ public class InstanceManager {
 			r.tru();
 			return r;
 		} else {
-			Log.severe("Something went wrong mounting instance!");
+			Log.severe("Instance was in unexpected state '" +instanceState.toString(i.state)+ "' or there was an error mounting region!");
 			Log.severe("Instance State : " + i.getStatusDisplay());
 			r.addAll(rf.message);
 			
@@ -682,7 +685,7 @@ public class InstanceManager {
 				//Subtract from our block position, the min point vector - this will give us our
 				//offset into the schematic.
 				Vector offV = v.subtract(i.getBounds().getMinimumPoint());
-				i.getDungeon().getEditSchematic().setBlock(offV, new BaseBlock(0));
+				i.getDungeon().getEditSchematic().setBlock(offV, new BaseBlock(0)); //TODO
 				
 			}
 		} else {

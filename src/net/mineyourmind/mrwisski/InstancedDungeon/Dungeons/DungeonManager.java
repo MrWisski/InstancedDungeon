@@ -7,11 +7,21 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import org.apache.commons.lang.StringUtils;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
+
+
 import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.worldedit.CuboidClipboard;
 import com.sk89q.worldedit.EditSession;
@@ -22,6 +32,8 @@ import com.sk89q.worldedit.bukkit.BukkitWorld;
 import com.sk89q.worldedit.data.DataException;
 import com.sk89q.worldedit.regions.CuboidRegion;
 
+import me.dpohvar.powernbt.api.NBTCompound;
+
 import net.mineyourmind.mrwisski.InstancedDungeon.FunctionsBridge;
 import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 import net.mineyourmind.mrwisski.InstancedDungeon.MCEditExtendedSchematicFormat;
@@ -29,6 +41,7 @@ import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonData.dungeonState;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.AsyncManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.NBTStore;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.RetVal;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Util;
 
@@ -180,6 +193,21 @@ public class DungeonManager {
 		return true;
 	}
 	
+	public static boolean deleteDungeon(String name){
+		Log.debug("DungeonManager.deleteDungeon");
+		
+		if(name == null || name == ""){
+			Log.severe("getDungeon - Cannot get dungeon with a null/empty name!");
+			return false;			
+		}
+		if(!dungeons.containsKey(name)){
+			Log.warning("Cannot find dungeon '" + name + "' to delete - Did you create it?");
+			return false;
+		}
+		dungeons.remove(name);
+		return true;
+	}
+	
 	public static RetVal createDungeon(String name){
 		Log.debug("DungeonManager.createDungeon");
 		RetVal r = new RetVal();
@@ -246,6 +274,7 @@ public class DungeonManager {
 		if(d.schematicLoc != ""){
 			try {
 				d.setSchematic(mcee.load(new File(bridge.getDataDir(),Config.pathToDungeons + d.schematicLoc )));
+				d.setTileEnts(mcee.loadTileEnts(new File(bridge.getDataDir(),Config.pathToDungeons + d.schematicLoc )));
 			} catch (DataException | IOException e) {
 				r.IntErr("Error reading schematic from disk!");
 				e.printStackTrace();
@@ -256,6 +285,7 @@ public class DungeonManager {
 		if(d.editSchematicLoc != ""){
 			try {
 				d.setEditSchematic(mcee.load(new File(bridge.getDataDir(),Config.pathToDungeons + d.editSchematicLoc )));
+				d.setEditTileEnts(mcee.loadTileEnts(new File(bridge.getDataDir(),Config.pathToDungeons + d.editSchematicLoc )));
 			} catch (DataException | IOException e) {
 				r.IntErr("Error reading edit schematic from disk!");
 				e.printStackTrace();
@@ -561,8 +591,149 @@ public class DungeonManager {
 	
 	public static void notifyPasteDone(InstanceData i){
 		Log.info("DungeonManager.NotifyPasteDone("+i.name+")");
+		//Now, we need to go ahead and make sure that the NBT data we've stored is properly
+		//applied to our chunks!
+		DungeonData d = i.getDungeon();
+		NBTStore e = d.getTileEnts();
+		World W = InstancedDungeon.getIDungeonDim().getWorld();
+		Block b = null;
+		int ox = i.getBounds().getMinimumPoint().getBlockX();
+		int oy = i.getBounds().getMinimumPoint().getBlockY();
+		int oz = i.getBounds().getMinimumPoint().getBlockZ();
+		
+		HashMap<Vector,NBTCompound> store = e.store;
+		
+		Set<Vector> k = store.keySet();
+		
+		for(Vector v : k){
+			Log.debug("TileEntity at " + Util.vToStr(v));
+			NBTCompound n = store.get(v);
+			if(n == null){Log.debug("compound is null! D:"); continue;}
+			b = W.getBlockAt(ox+v.getBlockX(), oy + v.getBlockY(), oz+v.getBlockZ());
+			Log.debug("Is " + b.getState().getData().getItemType().toString());
+			InstancedDungeon.NBTM.write(b, n);
+
+			
+		}
+		
 		InstanceManager.notifyInstanceReady(i);
 	}
 	
+	public static void handleEldritchLock(Block b, Player player){
+		
+		Class bc = b.getWorld().getClass();
+		//Log.debug("Dumping info about world class : ");
+		//DungeonManager.logObjInfo(b.getWorld());
+		Object o = InstancedDungeon.getRawTileEntityAt(b.getWorld(), b.getX(), b.getY(), b.getZ());
+		
+		try {
+			Class<?>[] p = new Class<?>[3];
+			p[0] = p[1] = p[2] = int.class;
+			
+	
+			Method m = o.getClass().getDeclaredMethod("spawnWardenBossRoom",p);
+			if(m == null){
+				Log.debug("Failed to find spawnWardenBossRoom! :(");
+			} else {
+				m.setAccessible(true);
+				try {
+					m.invoke(o, -1,-47,2 );
+				} catch (IllegalAccessException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (IllegalArgumentException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (InvocationTargetException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		} catch (NoSuchMethodException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SecurityException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Log.debug("Dumping info for tileentity!");
+		DungeonManager.logObjInfo(o);
+	}
+	
+	public static void dumpMethods(Object o){
+		String s = "";
+		Log.debug("[][][][][][][] Dumping Method info for object of type : " + o.getClass().getName());
+		for(Method m : o.getClass().getMethods()){
+			s += m.getName() + "(";
+			for(Class c : m.getParameterTypes()){
+				s += c.getSimpleName() + ",";
+			}
+			s += ") Returns : " + m.getReturnType().getSimpleName() + "\n";
+		}		
+		Log.debug(s);
+	}
+	
+	public static void dumpMethods(Class o){
+		String s = "";
+		Log.debug("[][][][][][][] Dumping Method info for Class of type : " + o.getName());
+		for(Method m : o.getDeclaredMethods()){
+			s += m.getName() + "(";
+			for(Class c : m.getParameterTypes()){
+				s += c.getSimpleName() + ",";
+			}
+			s += ") Returns : " + m.getReturnType().getSimpleName() + "\n";
+		}		
+		Log.debug(s);
+	}
+	
+	public static void dumpFields(Object o){
+		String s = "";
+		Log.debug("[][][][][][][] Dumping Field info for object of type : " + o.getClass().getName());
+		for(Field f : o.getClass().getFields()){
+			s += f.getName() + " ("+f.getType().getName()+")\n";
+		}
+		Log.debug(s);
+	}
+	
+	public static void dumpFields(Class o){
+		String s = "";
+		Log.debug("[][][][][][][] Dumping Field info for Class of type : " + o.getName());
+		for(Field f : o.getFields()){
+			s += f.getName() + " ("+f.getType().getName()+")\n";
+		}
+		Log.debug(s);
+	}
+	
+	public static void dumpInterfaces(Object o){
+		Log.debug("[][][][][][][] Dumping Interface info for object of type : " + o.getClass().getName());
+		for(Class c : o.getClass().getInterfaces()){
+			DungeonManager.logObjInfo(c);
+		}
+	}
+	
+	public static void dumpInterfaces(Class o){
+		Log.debug("[][][][][][][] Dumping Interface info for object of type : " + o.getName());
+		for(Class c : o.getClass().getInterfaces()){
+			DungeonManager.logObjInfo(c);
+		}
+	}
+	
+	public static void logObjInfo(Object o){
+		if(o == null){Log.debug("Nothing to report on a NULL object."); return;}
+		Log.debug("[][][][] Dumping info for object of type : " + o.getClass().getName());
+		dumpMethods(o);
+		dumpFields(o);
+		dumpInterfaces(o);
+
+	}
+	
+	public static void logObjInfo(Class o){
+		if(o == null){Log.debug("Nothing to report on a NULL object."); return;}
+		Log.debug("[][][][] Dumping info for object of type : " + o.getName());
+		dumpMethods(o);
+		dumpFields(o);
+		dumpInterfaces(o);
+		
+	}
 	
 }

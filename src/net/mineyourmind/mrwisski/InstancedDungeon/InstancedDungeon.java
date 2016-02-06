@@ -3,27 +3,27 @@ package net.mineyourmind.mrwisski.InstancedDungeon;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
-import java.util.logging.Handler;
-import java.util.logging.Logger;
-
 import com.google.common.io.Files;
+import com.sk89q.worldedit.CuboidClipboard;
 import com.sk89q.worldedit.EditSession;
-import com.sk89q.worldedit.LocalWorld;
 import com.sk89q.worldedit.Vector;
+import com.sk89q.worldedit.blocks.BaseBlock;
 import com.sk89q.worldedit.bukkit.BukkitWorld;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
+import com.sk89q.worldedit.bukkit.selections.Selection;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
+
+import me.dpohvar.powernbt.PowerNBT;
+import me.dpohvar.powernbt.api.NBTManager;
 import multiworld.MultiWorldPlugin;
 import multiworld.api.ConfigurationSaveException;
 import multiworld.api.MultiWorldAPI;
 import multiworld.api.MultiWorldWorldData;
-import multiworld.api.PluginType;
-
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Server;
@@ -33,6 +33,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.CreatureType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
@@ -48,6 +49,7 @@ import net.mineyourmind.mrwisski.InstancedDungeon.Config.ConfigMan;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
+import net.mineyourmind.mrwisski.InstancedDungeon.Util.NBTStore;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Util;
 
 /** InstancedDungeon - A Bukkit plugin to add Instanced Dungeons.
@@ -70,11 +72,13 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	EventListener eListener = null;
 	HandleCommand cHandler = null;
 	
-	public WorldEditPlugin worldEdit = null;
+	public static WorldEditPlugin worldEdit = null;
 	public WorldGuardPlugin worldGuard = null;
 	public static MultiWorldPlugin mw = null;
 	public MultiWorldAPI mwAPI = null;
-	public PluginMain awe = null;
+	public static PluginMain awe = null;
+	public static PowerNBT PNBT = null;
+	public static NBTManager NBTM = null;
 	
 	MultiWorldWorldData iDungeon = null;
 	
@@ -150,11 +154,26 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	}
 	
 	private boolean loadDepends(){
-				
+		
+	    try {
+	    	Plugin powernbtplug = this.getServer().getPluginManager().getPlugin("PowerNBT");
+	    	if(powernbtplug instanceof PowerNBT){
+	    		InstancedDungeon.PNBT = (PowerNBT)powernbtplug;
+	    		NBTM = NBTManager.getInstance();
+	    		Log.info("Found PowerNBT (" + powernbtplug.getDescription().getVersion() + ") plugin!");
+	    	} else {
+	    		Log.warning("Could not find PowerNBT - This plugin is a REQUIRED DEPENDENCY!");
+	    		return false;
+	    	}
+	    } catch (Exception e) {
+	    	Log.severe("Caught exception establishing WorldEdit services : ");
+	    	Log.severe(e.getMessage());
+	    	e.printStackTrace();
+	    }
 	    try {
 	    	Plugin mWorld = this.getServer().getPluginManager().getPlugin("MultiWorld");
 	    	if(mWorld instanceof MultiWorldPlugin){
-	    		this.mw = (MultiWorldPlugin)mWorld;
+	    		InstancedDungeon.mw = (MultiWorldPlugin)mWorld;
 	    		this.mwAPI = ((MultiWorldPlugin)mWorld).getApi();
 	    		Log.info("Found MultiWorld (" + mWorld.getDescription().getVersion() + ") plugin!");
 	    	} else {
@@ -170,7 +189,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	    try {
 	    	Plugin wEdit = this.getServer().getPluginManager().getPlugin("WorldEdit");
 	    	if(wEdit instanceof WorldEditPlugin){
-	    		this.worldEdit = (WorldEditPlugin)wEdit;
+	    		InstancedDungeon.worldEdit = (WorldEditPlugin)wEdit;
 	    		Log.info("Found WorldEdit (" + wEdit.getDescription().getVersion() + ") plugin!");
 	    	} else {
 	    		Log.warning("Could not find WorldEdit 5.6.3 - This plugin is a REQUIRED DEPENDENCY!");
@@ -200,7 +219,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	    try {
 	    	Plugin pm = this.getServer().getPluginManager().getPlugin("AsyncWorldEdit");
 	    	if(pm instanceof PluginMain){
-	    		this.awe = (PluginMain)pm;
+	    		InstancedDungeon.awe = (PluginMain)pm;
 	    		Log.info("Found AsynchWorldEdit ("+awe.getDescription().getVersion()+") plugin!");
 	    	} else {
 	    		Log.severe("Could not find AsynchWorldEdit 1.3 - This plugin is a REQUIRED DEPENDENCY!");
@@ -212,7 +231,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	    	e.printStackTrace();
 	    }
 	    
-	    String P = this.worldEdit.getDataFolder().getAbsolutePath();
+	    String P = InstancedDungeon.worldEdit.getDataFolder().getAbsolutePath();
 	    Log.info("WE data folder path : " + P);
 	    return true;
 	}
@@ -389,6 +408,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 
 		}
 		
+		// Force a load for our schematic type
 		MCEditExtendedSchematicFormat mcee = new MCEditExtendedSchematicFormat();
 		
 		//Load in our dungeons - Since we depend on WorldEdit to be fully loaded,
@@ -408,6 +428,20 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		this.cHandler = new HandleCommand(this);
 		server.getPluginManager().registerEvents(eListener, this);
 		this.getCommand(Config.command).setExecutor(cHandler);
+		try {
+			Class tcboss = Class.forName("thaumcraft.common.entities.monster.boss.EntityThaumcraftBoss");
+			if(tcboss == null){
+				Log.error("Failed to get the class data for the thaumcraft boss :(");
+			} else {
+				Method[] tcbmeth = tcboss.getMethods();
+				for(Method m : tcbmeth){
+					Log.debug("     " + m.getName());
+				}
+			}
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	///////////////////////////////////////////////////////////////////////////////////
@@ -505,15 +539,15 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 
 	@Override
 	public boolean weSchematicExists(String filename) {
-		String P = this.worldEdit.getDataFolder().getAbsolutePath() + File.separator + "schematics" + File.separator + filename;
-		Log.info("File name : " + P);
+		String P = InstancedDungeon.worldEdit.getDataFolder().getAbsolutePath() + File.separator + "schematics" + File.separator + filename;
+		Log.debug("File name : " + P);
 		return new File(P).exists();
 	}
 
 	@Override
 	public File getWEditSchematic(String filename) {
-		String P = this.worldEdit.getDataFolder().getAbsolutePath() + File.separator + "schematics" + File.separator + filename;
-		Log.info("File name : " + P);
+		String P = InstancedDungeon.worldEdit.getDataFolder().getAbsolutePath() + File.separator + "schematics" + File.separator + filename;
+		Log.debug("File name : " + P);
 		return new File(P);
 	}
 
@@ -627,6 +661,90 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	public static BukkitWorld getIDungeonDim(){
 		return new BukkitWorld(mw.getApi().getWorld(Config.dimension).getBukkitWorld());
 	}
-	
+
+	@Override
+	public NBTStore pullNBTDataForSchematic(String playername) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public CuboidClipboard pullClipboardFromSchematic(Selection s) {
+
+
+		
+		Vector min = s.getNativeMinimumPoint();
+		Vector max = s.getNativeMaximumPoint();
+
+		CuboidClipboard clipboard = new CuboidClipboard(max.subtract(min).add(Vector.ONE), min); 
+
+		for (int x = 0; x < s.getWidth(); ++x) { 
+			for (int y = 0; y < s.getHeight(); ++y) { 
+				for (int z = 0; z < s.getLength(); ++z) { 
+					Vector vector = new Vector(x, y, z); 
+					Block block = s.getWorld().getBlockAt(s.getMinimumPoint().getBlockX() + x, 
+							s.getMinimumPoint().getBlockY() + y, 
+							s.getMinimumPoint().getBlockZ() + z); 
+					BaseBlock baseBlock = new BaseBlock(block.getTypeId(), block.getData()); 
+					
+					clipboard.setBlock(vector, baseBlock); 
+				} 
+			} 
+		} 
+		return clipboard; 
+
+	} 
+
+	public static Object getRawTileEntityAt(World w, int x, int y, int z){
+		Object o = null;
+		
+		Method gtea = null;
+		for(Method m : w.getClass().getMethods()){
+			if(m.getName().equalsIgnoreCase("getTileEntityAt")){
+				Log.debug("Found getTileEntityAt!");
+				gtea = m;
+			} 
+		}
+		
+		Object v = null;
+		try {
+			v = gtea.invoke(w, x,y,z);
+		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			Log.error("Exception invoking getTileEntityAt :(");
+			return null;
+		}
+		if(v == null){
+			Log.error("No tile entity there! :(");
+			return null;
+		} else {
+			Log.debug("Found something...hopefully its what we're looking for!");
+			return v;
+		}
+	}
+
+	public static Object getNMSBlock(Block b){
+		Object o = null;
+		
+		for(Method m : b.getClass().getMethods()){
+			if(m.getName().equalsIgnoreCase("getnmsblock")){
+				Log.debug("Found GetNMSBlock!");
+				
+				Object x = null;
+				try {
+					x = m.invoke(b);
+				} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+					// TODO Auto-generated catch block
+					Log.error("Failed reflection!");
+				}
+				
+				return x;
+				
+			} else {
+				Log.debug("Couldn't find!");
+			}
+		}
+		Log.debug("Couldn't find getNMSBlock");
+		return null;
+	}
 
 }
