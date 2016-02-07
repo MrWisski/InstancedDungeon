@@ -76,6 +76,30 @@ public class DungeonData extends CSVable{
 	public float spawnPitch = 0;
 	public float spawnYaw = 0;
 	
+	// For thaumcraft dungeons - the portal spawns in at 8,8 in the chunk.
+	public boolean hasAnchor = false; 
+	public int anchorX = 0;
+	public int anchorY = 0;
+	public int anchorZ = 0;
+	private Vector AnchorV;
+	
+	public void setAnchor(int x, int y, int z){
+		anchorX = x;
+		anchorY = y;
+		anchorZ = z;
+		AnchorV = new Vector(x,y,z); 
+		this.hasAnchor = true; 
+		Log.debug("Set instance Anchor Point to "+x+", " + y + ", " + z);
+		if(this.schematic != null){
+			schematic.setOffset(AnchorV);
+		}
+		if(this.editSchematic != null){
+			editSchematic.setOffset(AnchorV);
+		}
+	}
+	public Vector getAnchor(){return AnchorV;}
+	
+	
 	private CuboidRegion bounds = new CuboidRegion(new Vector(0,0,0),new Vector(1,1,1));
 	private Vector center = new Vector(0,0,0);
 	
@@ -94,8 +118,8 @@ public class DungeonData extends CSVable{
 	
 	public void setTileEnts(NBTStore s){
 		tileEnts = s;
-		Log.debug("Dumping tileents for dungeon '"+name+"'");
-		tileEnts.logContents();
+		//Log.debug("Dumping tileents for dungeon '"+name+"'");
+		//tileEnts.logContents();
 	}
 	
 	public NBTStore getEditTileEnts(){
@@ -104,8 +128,8 @@ public class DungeonData extends CSVable{
 	
 	public void setEditTileEnts(NBTStore s){
 		editTileEnts = s;
-		Log.debug("Dumping edit tileents for dungeon '"+name+"'");
-		editTileEnts.logContents();
+		//Log.debug("Dumping edit tileents for dungeon '"+name+"'");
+		//editTileEnts.logContents();
 	}
 	
 	public void setTemplate(CuboidClipboard schem){
@@ -162,6 +186,7 @@ public class DungeonData extends CSVable{
 		Log.debug("DungeonData.synch");
 		DungeonManager.setTemplate(this);
 		DungeonManager.setSchematic(this);
+		if(this.anchorX != 0 && this.anchorY != 0 && this.anchorZ != 0){ this.setAnchor(anchorX, anchorY, anchorZ);}
 		
 		this.synched = true;
 		return true;

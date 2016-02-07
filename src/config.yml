@@ -1,5 +1,5 @@
 #DO NOT CHANGE, internal use only. Changing this will reset your entire config!
-configver: 4
+configver: 5
 
 #plugin specific configuration
 plugin:
@@ -20,5 +20,17 @@ dimension:
  #Dungeon configuration
 dungeon:
     #Bordering block, used as the "shell" around each instance, as a list of preferences. use /id misc itemhand to get the material name for the block in your hand!
+    #The first VALID block found will be used as the border - so leave BEDROCK, or run the risk of not having a shell!
     border: [TWILIGHTFOREST_TILEWISPYCLOUD, BEDROCK]
-    
+    ignoreNBT: [THAUMCRAFT_BLOCKELDRITCHNOTHING]
+ #Thaumcraft integration - DO NOT CHANGE UNLESS YOU REALLY KNOW WHAT YOU'RE DOING HERE!
+thaumcraft:
+    #Should we enable thaumcraft hooking?
+    enabled: true
+    #Long classname for the Eldrich Lock tile entity class.
+    lockclass: thaumcraft.common.tiles.TileEldritchLock
+    #Boss room building functions - spawnX(int,int,int) is what we're expecting, otherwise we'll get errors.
+    bosses: [spawnWardenBossRoom, spawnGolemBossRoom, spawnCultistBossRoom, spawnTaintBossRoom]
+    #We use this block to set the entrance to the OL Maze - it gets removed, and the instance entrace gets set to x+1.
+    portal: THAUMCRAFT_BLOCKPORTALELDRITCH
+    tabletmeta: 2

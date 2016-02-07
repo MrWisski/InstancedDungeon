@@ -67,7 +67,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 
 	static Config conf = null;
 	
-	private final int CONF_VER = 4;
+	private final int CONF_VER = 5;
 	
 	EventListener eListener = null;
 	HandleCommand cHandler = null;
@@ -150,7 +150,26 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 				break;
 			}
 		}
-	
+		List<String> bossrooms = pluginConf.getStringList("thaumcraft.bosses");
+		String[] newbr = new String[bossrooms.size()];
+		for(int i = 0; i < bossrooms.size(); i++){
+			newbr[i] = bossrooms.get(i);
+		}
+		Config.thaumbosses = newbr;
+		Config.thaumenable = pluginConf.getBoolean("thaumcraft.enable");
+		Config.thaumlockclass = pluginConf.getString("thaumcraft.lockclass");
+		Config.thaumportal = pluginConf.getString("thaumcraft.portal");
+		Config.thaumtabletmeta = pluginConf.getInt("thaumcraft.tabletmeta");
+		
+		List<String> nbtig = pluginConf.getStringList("dungeon.ignoreNBT");
+		String[] newignore = new String[nbtig.size()];
+		for(int i = 0; i < nbtig.size(); i++){
+			newignore[i] = nbtig.get(i);
+			Config.nbtIgnoreList.add(nbtig.get(i));
+			Log.debug("Adding '"+nbtig.get(i)+"' to ignore list!");
+		}
+		
+		Config.nbtIgnore = newignore;
 	}
 	
 	private boolean loadDepends(){
@@ -249,7 +268,6 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 	/**Handles a request from the Bukkit server to enable the plugin. */
 	@Override
 	public void onEnable() {
-		this.initConfig();
 		//Setup our instance var
 		instance = this;
 		
@@ -257,6 +275,7 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		server = getServer();
 				
 		//Load our config!
+		this.initConfig();
 		this.loadConfig();
 		
 		if(Config.enabled){
@@ -428,20 +447,6 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		this.cHandler = new HandleCommand(this);
 		server.getPluginManager().registerEvents(eListener, this);
 		this.getCommand(Config.command).setExecutor(cHandler);
-		try {
-			Class tcboss = Class.forName("thaumcraft.common.entities.monster.boss.EntityThaumcraftBoss");
-			if(tcboss == null){
-				Log.error("Failed to get the class data for the thaumcraft boss :(");
-			} else {
-				Method[] tcbmeth = tcboss.getMethods();
-				for(Method m : tcbmeth){
-					Log.debug("     " + m.getName());
-				}
-			}
-		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 	}
 	
 	///////////////////////////////////////////////////////////////////////////////////
@@ -567,6 +572,8 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 		i.material = is.getData().getItemType().toString();
 		i.count = is.getAmount();
 		i.name = is.toString();
+		i.id = is.getData().getItemTypeId();
+		i.meta = is.getData().getData();
 		return i;
 	}
 
@@ -695,56 +702,6 @@ public final class InstancedDungeon extends JavaPlugin implements FunctionsBridg
 
 	} 
 
-	public static Object getRawTileEntityAt(World w, int x, int y, int z){
-		Object o = null;
-		
-		Method gtea = null;
-		for(Method m : w.getClass().getMethods()){
-			if(m.getName().equalsIgnoreCase("getTileEntityAt")){
-				Log.debug("Found getTileEntityAt!");
-				gtea = m;
-			} 
-		}
-		
-		Object v = null;
-		try {
-			v = gtea.invoke(w, x,y,z);
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-			Log.error("Exception invoking getTileEntityAt :(");
-			return null;
-		}
-		if(v == null){
-			Log.error("No tile entity there! :(");
-			return null;
-		} else {
-			Log.debug("Found something...hopefully its what we're looking for!");
-			return v;
-		}
-	}
 
-	public static Object getNMSBlock(Block b){
-		Object o = null;
-		
-		for(Method m : b.getClass().getMethods()){
-			if(m.getName().equalsIgnoreCase("getnmsblock")){
-				Log.debug("Found GetNMSBlock!");
-				
-				Object x = null;
-				try {
-					x = m.invoke(b);
-				} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-					// TODO Auto-generated catch block
-					Log.error("Failed reflection!");
-				}
-				
-				return x;
-				
-			} else {
-				Log.debug("Couldn't find!");
-			}
-		}
-		Log.debug("Couldn't find getNMSBlock");
-		return null;
-	}
 
 }

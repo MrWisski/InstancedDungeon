@@ -29,7 +29,6 @@ public class ConfigMan {
 	//Internal use only vars
 	private YamlConfiguration thisConfig = null;
 	private File thisConfigFile = null;
-	private boolean debug = false;
 
 	/** Denotes if this configman instance is running a valid config */
 	public boolean configLoaded = false;
@@ -79,7 +78,7 @@ public class ConfigMan {
 		}
 
 
-		if(this.debug) Log.info("ConfigMan Debug - Read of configuration file requested : File is " + this.thisConfigFile.length() + " bytes long.");
+		Log.debug("ConfigMan Debug - Read of configuration file requested : File is " + this.thisConfigFile.length() + " bytes long.");
 		String conf = null;
 
 		try {
@@ -89,17 +88,14 @@ public class ConfigMan {
 			e1.printStackTrace();
 		}
 
-		if(this.debug) Log.info("ConfigMan Debug - Config String : " + conf);
+		Log.debug("ConfigMan Debug - Config String : " + conf);
 		if(thisConfig == null)
 			thisConfig = new YamlConfiguration();
 
 		try {
 			thisConfig.loadFromString(conf);
 		} catch (InvalidConfigurationException e) {
-
-			Log.info(e.getMessage());
 			e.printStackTrace();
-
 		}
 		this.configLoaded = true;
 		return true;

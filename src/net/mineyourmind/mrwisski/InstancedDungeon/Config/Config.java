@@ -1,6 +1,8 @@
 package net.mineyourmind.mrwisski.InstancedDungeon.Config;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.HashSet;
 
 public class Config {
 	private static Config instance = null;
@@ -17,7 +19,7 @@ public class Config {
 	}
 	
 	public static void reload(){
-		debug = false;
+		debug = true;
 		enabled = false;
 		dimension = "idungeon";
 		generator = "Empty";
@@ -46,13 +48,18 @@ public class Config {
 	public static String pathToInstances = File.separator + "instances" + File.separator;
 	
 //External Configuration Options
-	public static boolean debug = false;
+	public static boolean debug = true;
 	public static boolean enabled = false;
 	public static String dimension = "idungeon";
 	public static String generator = "Empty";
 	public static boolean makeDim = true;
 	public static String border = "BEDROCK";
-
-	
+	public static String[] thaumbosses = {"spawnWardenBossRoom", "spawnGolemBossRoom", "spawnCultistBossRoom", "spawnTaintBossRoom"};
+	public static String thaumlockclass = "thaumcraft.common.tiles.TileEldritchLock";
+	public static boolean thaumenable = true;
+	public static String thaumportal = "THAUMCRAFT_BLOCKPORTALELDRITCH";
+	public static int thaumtabletmeta = 2;
+	public static String[] nbtIgnore = {"THAUMCRAFT_BLOCKELDRITCHNOTHING"};
+	public static HashSet<String> nbtIgnoreList = new HashSet<String>();
 
 }

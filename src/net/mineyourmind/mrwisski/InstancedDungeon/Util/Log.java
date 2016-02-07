@@ -12,6 +12,7 @@ public class Log {
 	}
 	
 	private static void writeLog(MsgType t, String msg){
+		if(msg == null || t == null){return;}
 		switch(t){
 		case DEBUG:
 			if(Config.debug){
@@ -30,7 +31,7 @@ public class Log {
 	}
 	
 	public static void debug(String msg){
-		Log.writeLog(MsgType.DEBUG,msg);
+		Log.writeLog(MsgType.DEBUG, msg);
 	}
 	
 	public static void info(String msg){

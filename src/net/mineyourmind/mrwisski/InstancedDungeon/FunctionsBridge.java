@@ -26,6 +26,8 @@ public interface FunctionsBridge {
 	public class itemInfo{
 		public String name;
 		public String material;
+		public int id;
+		public int meta;
 		public int count;
 	}
 	

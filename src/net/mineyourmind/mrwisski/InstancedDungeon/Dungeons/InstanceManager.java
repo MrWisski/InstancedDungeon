@@ -28,8 +28,8 @@ import net.mineyourmind.mrwisski.InstancedDungeon.Util.Util;
 public class InstanceManager {
 	public static final int REGION_SIZE = 512;
 	public static final int HALF_REGION = 256;
-	public static final Vector HALF_REGION_V = new Vector(256,0,256);
-	public static final Vector REGION_V = new Vector(512,0,512);
+	public static final Vector HALF_REGION_V = new Vector(256,128,256);
+	public static final Vector REGION_V = new Vector(512,128,512);
 	
 	private static HashMap<String, InstanceData> instances = new HashMap<String, InstanceData>();
 	private static HashMap<UUID, InstanceData> ownerInstances = new HashMap<UUID, InstanceData>();
@@ -163,8 +163,32 @@ public class InstanceManager {
 		String name = getRegionID(atLoc); //atLoc.getBlockX() + "_" + atLoc.getY();
 		
 		atLoc = HALF_REGION_V.add(atLoc);
-		Log.debug("atLoc + halfregion = " + Util.vToStr(atLoc));
-		atLoc = atLoc.setY(64);
+				
+		//225,	19,		290	-	Dimensions
+		//121,	7,		154	-	center we need at middle, 53, middle.
+		//256,	128,	256 -	paste location.
+		
+		//112,	9.5,	145	-	half size
+		//60.5,	3.5,	77	-	half offset
+		
+		//loc - halfsize = 144,		118.5,		111
+		
+		
+		
+		if(!d.hasAnchor){
+			
+			atLoc = atLoc.setY(64);
+			Log.debug("atLoc + halfregion = " + Util.vToStr(atLoc));
+		} else {
+			Vector offset = d.getAnchor();
+			Vector halfsize = d.getSchematic().getSize().divide(2d);
+			Vector align = atLoc.subtract(9+8, 0, 9+8);
+			
+			Vector T = align.subtract(halfsize);
+			atLoc = T;
+			atLoc = atLoc.setY(53-offset.getBlockY());
+			
+		}
 		Log.debug("atLoc Final = " + Util.vToStr(atLoc));
 		
 		Log.debug("new InstanceData(" + name + ", " + owner + ", " + uuid.toString() + ", " + dungeon + ", " + Util.vToStr(atLoc) + ", false");
@@ -314,6 +338,11 @@ public class InstanceManager {
 		} else {
 			Log.debug("Dungeon State : " + i.getDungeon().getStatusDisplay());
 		}
+		
+		//Correct if dungeon has the Anchor set...we need to make sure that this instance is pasted
+		//to 8,8 chunk coords, at a y of 53.
+		Vector o = i.getOrigin();
+		
 		
 		RetVal rf = DungeonManager.pasteSchematic(i.dungeonName, i); 
 		

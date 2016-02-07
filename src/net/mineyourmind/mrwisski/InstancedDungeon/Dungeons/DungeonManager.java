@@ -368,6 +368,7 @@ public class DungeonManager {
 		}
 		//Grab our clipboard region - we'll need it shortly.
 		CuboidClipboard t = d.getTemplate();
+		
 		if(t == null){
 			Log.info("Trying to prep dungeon '"+name+"' without a template set - attempting to set template!");
 			DungeonManager.setTemplate(d);
@@ -391,8 +392,23 @@ public class DungeonManager {
 				for(float z = 0; z < t.getLength(); z++){
 					Vector v = new Vector(x,y,z);
 					BaseBlock b = t.getPoint(v);
-					
-					//Material m = Material.getMaterial(b.getId());
+					if(!b.isAir()){
+
+						//Check for Thaumcraft Eldritch Portals.
+						if(DungeonManager.compBlockMat(b, Config.thaumportal)){
+							
+							
+							d.spawnX = (int)x + (int)1;
+							d.spawnY = (int)y;
+							d.spawnZ = (int)z;
+							
+							d.setAnchor((int)x, (int)y, (int)z) ;
+							t.setOffset(d.getAnchor());
+							b.setIdAndData(0, 0);
+							r.add("Found thaumcraft Eldritch Portal - Removing, and setting dungeon Spawn and Anchor Point!");
+						}
+
+					}
 					//CompoundTag tag = b.getNbtData();
 					/*
 					if(tag != null){
@@ -619,121 +635,15 @@ public class DungeonManager {
 		InstanceManager.notifyInstanceReady(i);
 	}
 	
-	public static void handleEldritchLock(Block b, Player player){
+	@SuppressWarnings("deprecation")
+	public static boolean compBlockMat(BaseBlock b, String mat){
+		//Log.debug("compBlockMat()");
+		Material m = Material.getMaterial(mat);
+		if(m == null){return false;}
 		
-		Class bc = b.getWorld().getClass();
-		//Log.debug("Dumping info about world class : ");
-		//DungeonManager.logObjInfo(b.getWorld());
-		Object o = InstancedDungeon.getRawTileEntityAt(b.getWorld(), b.getX(), b.getY(), b.getZ());
-		
-		try {
-			Class<?>[] p = new Class<?>[3];
-			p[0] = p[1] = p[2] = int.class;
-			
-	
-			Method m = o.getClass().getDeclaredMethod("spawnWardenBossRoom",p);
-			if(m == null){
-				Log.debug("Failed to find spawnWardenBossRoom! :(");
-			} else {
-				m.setAccessible(true);
-				try {
-					m.invoke(o, -1,-47,2 );
-				} catch (IllegalAccessException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (IllegalArgumentException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (InvocationTargetException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-		} catch (NoSuchMethodException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (SecurityException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		Log.debug("Dumping info for tileentity!");
-		DungeonManager.logObjInfo(o);
-	}
-	
-	public static void dumpMethods(Object o){
-		String s = "";
-		Log.debug("[][][][][][][] Dumping Method info for object of type : " + o.getClass().getName());
-		for(Method m : o.getClass().getMethods()){
-			s += m.getName() + "(";
-			for(Class c : m.getParameterTypes()){
-				s += c.getSimpleName() + ",";
-			}
-			s += ") Returns : " + m.getReturnType().getSimpleName() + "\n";
-		}		
-		Log.debug(s);
-	}
-	
-	public static void dumpMethods(Class o){
-		String s = "";
-		Log.debug("[][][][][][][] Dumping Method info for Class of type : " + o.getName());
-		for(Method m : o.getDeclaredMethods()){
-			s += m.getName() + "(";
-			for(Class c : m.getParameterTypes()){
-				s += c.getSimpleName() + ",";
-			}
-			s += ") Returns : " + m.getReturnType().getSimpleName() + "\n";
-		}		
-		Log.debug(s);
-	}
-	
-	public static void dumpFields(Object o){
-		String s = "";
-		Log.debug("[][][][][][][] Dumping Field info for object of type : " + o.getClass().getName());
-		for(Field f : o.getClass().getFields()){
-			s += f.getName() + " ("+f.getType().getName()+")\n";
-		}
-		Log.debug(s);
-	}
-	
-	public static void dumpFields(Class o){
-		String s = "";
-		Log.debug("[][][][][][][] Dumping Field info for Class of type : " + o.getName());
-		for(Field f : o.getFields()){
-			s += f.getName() + " ("+f.getType().getName()+")\n";
-		}
-		Log.debug(s);
-	}
-	
-	public static void dumpInterfaces(Object o){
-		Log.debug("[][][][][][][] Dumping Interface info for object of type : " + o.getClass().getName());
-		for(Class c : o.getClass().getInterfaces()){
-			DungeonManager.logObjInfo(c);
-		}
-	}
-	
-	public static void dumpInterfaces(Class o){
-		Log.debug("[][][][][][][] Dumping Interface info for object of type : " + o.getName());
-		for(Class c : o.getClass().getInterfaces()){
-			DungeonManager.logObjInfo(c);
-		}
-	}
-	
-	public static void logObjInfo(Object o){
-		if(o == null){Log.debug("Nothing to report on a NULL object."); return;}
-		Log.debug("[][][][] Dumping info for object of type : " + o.getClass().getName());
-		dumpMethods(o);
-		dumpFields(o);
-		dumpInterfaces(o);
-
-	}
-	
-	public static void logObjInfo(Class o){
-		if(o == null){Log.debug("Nothing to report on a NULL object."); return;}
-		Log.debug("[][][][] Dumping info for object of type : " + o.getName());
-		dumpMethods(o);
-		dumpFields(o);
-		dumpInterfaces(o);
-		
+		Material mb = Material.getMaterial(b.getId());
+		if(mb == null){return false;}
+		return m.equals(mb);
 	}
 	
 }

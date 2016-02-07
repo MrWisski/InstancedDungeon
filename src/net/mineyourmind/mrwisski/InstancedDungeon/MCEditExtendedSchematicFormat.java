@@ -26,6 +26,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -57,6 +58,7 @@ import com.sk89q.worldedit.data.DataException;
 import com.sk89q.worldedit.schematic.SchematicFormat;
 
 import me.dpohvar.powernbt.api.NBTCompound;
+import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.NBTStore;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Util;
@@ -164,7 +166,7 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
                      
                      if (block instanceof TileEntityBlock && tileEntitiesMap.containsKey(pt)) {
                          CompoundTag t = new CompoundTag("", tileEntitiesMap.get(pt));
-                         Log.debug("Adding tileent at " + Util.vToStr(pt));
+                         //Log.debug("Adding tileent at " + Util.vToStr(pt));
                          ret.add((Vector)pt, NBTStore.toPNBT(t));
                          
                      }
@@ -229,39 +231,56 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
              throw new DataException("Schematic file is not an Alpha Extended schematic");
          }
 
-         //TODO 	
-         //		Dear FutureBeard, Convert this to an index of material:data pairs, and just 
-         //		save blocks out as references to this index - will cut down on file size tremendously!
-         //			-Love, LazyPastBeard ^_^
-         
          // Get blocks
          List<Tag> blockMat = getChildTag(schematic,"BlockMats", ListTag.class).getValue();
          byte[] blockData = getChildTag(schematic,"BlockData", ByteArrayTag.class).getValue();
-  
-//         byte[] blockId = getChildTag(schematic, "Blocks", ByteArrayTag.class).getValue();
-//         byte[] blockData = getChildTag(schematic, "Data", ByteArrayTag.class).getValue();
-//         byte[] addId = new byte[0];
-//         short[] blocks = new short[blockId.length]; // Have to later combine IDs
+ 
+         Map<BlockVector, Map<String, Tag>> nbtEntitiesMap =
+                 new HashMap<BlockVector, Map<String, Tag>>();
+         
+         if(schematic.containsKey("nbtData")){
+        	 //nbtEntries = ;
+        	 
+             ////////////////////////////////////////////////////////////////
+             // Need to pull out NBT entities
+             List<Tag> nbtEntities = getChildTag(schematic,"nbtData",ListTag.class).getValue();
+ 
 
-         // We support 4096 block IDs using the same method as vanilla Minecraft, where
-         // the highest 4 bits are stored in a separate byte array.
-//         if (schematic.containsKey("AddBlocks")) {
-//             addId = getChildTag(schematic, "AddBlocks", ByteArrayTag.class).getValue();
-//         }
+             for (Tag tag : nbtEntities) {
+                 if (!(tag instanceof CompoundTag)) continue;
+                 CompoundTag t = (CompoundTag) tag;
 
-         // Combine the AddBlocks data with the first 8-bit block ID
-//         for (int index = 0; index < blockId.length; index++) {
-//             if ((index >> 1) >= addId.length) { // No corresponding AddBlocks index
-//                 blocks[index] = (short) (blockId[index] & 0xFF);
-//             } else {
-//                 if ((index & 1) == 0) {
-//                     blocks[index] = (short) (((addId[index >> 1] & 0x0F) << 8) + (blockId[index] & 0xFF));
-//                 } else {
-//                     blocks[index] = (short) (((addId[index >> 1] & 0xF0) << 4) + (blockId[index] & 0xFF));
-//                 }
-//             }
-//         }
+                 int x = 0;
+                 int y = 0;
+                 int z = 0;
 
+                 Map<String, Tag> values = new HashMap<String, Tag>();
+
+                 for (Map.Entry<String, Tag> entry : t.getValue().entrySet()) {
+                     if (entry.getKey().equals("x")) {
+                         if (entry.getValue() instanceof IntTag) {
+                             x = ((IntTag) entry.getValue()).getValue();
+                         }
+                     } else if (entry.getKey().equals("y")) {
+                         if (entry.getValue() instanceof IntTag) {
+                             y = ((IntTag) entry.getValue()).getValue();
+                         }
+                     } else if (entry.getKey().equals("z")) {
+                         if (entry.getValue() instanceof IntTag) {
+                             z = ((IntTag) entry.getValue()).getValue();
+                         }
+                     }
+
+                     values.put(entry.getKey(), entry.getValue());
+                 }
+
+                 BlockVector vec = new BlockVector(x, y, z);
+                 nbtEntitiesMap.put(vec, values);
+             }
+        	 
+         }
+         
+         ////////////////////////////////////////////////////////////////
          // Need to pull out tile entities
          List<Tag> tileEntities = getChildTag(schematic, "TileEntities", ListTag.class)
                  .getValue();
@@ -318,6 +337,11 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
                      if (block instanceof TileEntityBlock && tileEntitiesMap.containsKey(pt)) {
                          ((TileEntityBlock) block).setNbtData(new CompoundTag("", tileEntitiesMap.get(pt)));
                      }
+                     
+                     if(nbtEntitiesMap.containsKey(pt)){
+                    	 block.setNbtData(new CompoundTag("", nbtEntitiesMap.get(pt)));
+                     }
+                     
                      clipboard.setBlock(pt, block);
                  }
              }
@@ -354,18 +378,7 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
         schematic.put("WEOffsetX", new IntTag("WEOffsetX", clipboard.getOffset().getBlockX()));
         schematic.put("WEOffsetY", new IntTag("WEOffsetY", clipboard.getOffset().getBlockY()));
         schematic.put("WEOffsetZ", new IntTag("WEOffsetZ", clipboard.getOffset().getBlockZ()));
-
-        
-        //TODO 	
-        //		Dear FutureBeard, Convert this to an index of material:data pairs, and just 
-        //		save blocks out as references to this index - should cut down on file size tremendously!
-        //			-Love, LazyPastBeard ^_^
-        
-        // Copy
-//        byte[] blocks = new byte[width * height * length];
-//        byte[] addBlocks = null;
-
-        
+       
         ArrayList<Tag> blockMat = new ArrayList<Tag>(width*height*length);
         blockMat.ensureCapacity(width*height*length);
         for(int x = 0; x < width*height*length;x++){
@@ -374,6 +387,7 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
         byte[] blockData = new byte[width * height * length];
         
         ArrayList<Tag> tileEntities = new ArrayList<Tag>();
+        ArrayList<Tag> nbtEntries = new ArrayList<Tag>();
 
         for (int x = 0; x < width; ++x) {
             for (int y = 0; y < height; ++y) {
@@ -381,19 +395,7 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
                     int index = y * width * length + z * width + x;
                     BaseBlock block = clipboard.getPoint(new BlockVector(x, y, z));
 
-                    // Save 4096 IDs in an AddBlocks section
-//                    if (block.getType() > 255) {
-//                        if (addBlocks == null) { // Lazily create section
-//                            addBlocks = new byte[(blocks.length >> 1) + 1];
-//                        }
-
-//                        addBlocks[index >> 1] = (byte) (((index & 1) == 0) ?
-//                                addBlocks[index >> 1] & 0xF0 | (block.getType() >> 8) & 0xF
-//                                : addBlocks[index >> 1] & 0xF | ((block.getType() >> 8) & 0xF) << 4);
-//                    }
-
                     blockMat.set(index, new StringTag(Integer.toString(index), Material.getMaterial(block.getId()).toString()));
-                    //blocks[index] = (byte) block.getType();
                     blockData[index] = (byte) block.getData();
 
                     // Store TileEntity data
@@ -419,6 +421,26 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
                             //NBTStore.logWENBT(tileEntityTag);
                             tileEntities.add(tileEntityTag);
                         }
+                    } else if(block.hasNbtData()){
+                    	CompoundTag rawTag = null;
+                    	rawTag = block.getNbtData();
+                    	if (rawTag != null) {
+                			Map<String, Tag> values = new HashMap<String, Tag>();
+                			for (Entry<String, Tag> entry : rawTag.getValue().entrySet()) {
+                				values.put(entry.getKey(), entry.getValue());
+                			}
+                			
+                			if(!values.containsKey("id")) values.put("id", new StringTag("id", block.getNbtId()));
+                			if(!values.containsKey("x"))values.put("x", new IntTag("x", x));
+                			if(!values.containsKey("y"))values.put("y", new IntTag("y", y));
+                			if(!values.containsKey("z"))values.put("z", new IntTag("z", z));
+
+                			CompoundTag nbtTag = new CompoundTag("nbtBlock", values);
+                			//Log.debug("Displaying the NBT we got for this tag : ");
+                			//NBTStore.logWENBT(tileEntityTag);
+                			nbtEntries.add(nbtTag);
+                		}
+                    	
                     }
                 }
             }
@@ -428,11 +450,8 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
         schematic.put("BlockData", new ByteArrayTag("BlockData", blockData));
         schematic.put("Entities", new ListTag("Entities", CompoundTag.class, new ArrayList<Tag>()));
         schematic.put("TileEntities", new ListTag("TileEntities", CompoundTag.class, tileEntities));
-//        if (addBlocks != null) {
-//            schematic.put("AddBlocks", new ByteArrayTag("AddBlocks", addBlocks));
-//        }
+        schematic.put("nbtData", new ListTag("nbtTags", CompoundTag.class, nbtEntries));
 
-        // Build and output
         CompoundTag schematicTag = new CompoundTag("ExtendedSchematic", schematic);
         NBTOutputStream stream = new NBTOutputStream(new FileOutputStream(file));
         stream.writeTag(schematicTag);
@@ -486,6 +505,7 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
         byte[] blockData = new byte[width * height * length];
         
         ArrayList<Tag> tileEntities = new ArrayList<Tag>();
+        ArrayList<Tag> nbtEntries = new ArrayList<Tag>();
 
         for (int x = 0; x < width; ++x) {
             for (int y = 0; y < height; ++y) {
@@ -494,64 +514,74 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
                     BaseBlock block = clipboard.getBlock(new Vector(x, y, z));
                     Block b = s.getWorld().getBlockAt(clipboard.getOrigin().getBlockX() + x, clipboard.getOrigin().getBlockY() + y, clipboard.getOrigin().getBlockZ() + z);
                     
-                    blockMat.set(index, new StringTag(Integer.toString(index), Material.getMaterial(block.getId()).toString()));
+                    String name = Material.getMaterial(block.getId()).toString();
+                    blockMat.set(index, new StringTag(Integer.toString(index), name));
                     blockData[index] = (byte) block.getData();
-
-                    // Store TileEntity data
-                    if (block instanceof TileEntityBlock) {
+                    
+                    if(block.isAir()){continue;}
+                    
+                    //Store tile entity data
+                    NBTCompound pc = InstancedDungeon.NBTM.read(b);
+                    if (block instanceof TileEntityBlock && !pc.isEmpty()) {
                     	TileEntityBlock tileEntityBlock = block;
-                    	NBTCompound pc = InstancedDungeon.NBTM.read(b);
-                    	
+                    	CompoundTag rawTag = null;
                     	//Log.debug(tileEntityBlock.getNbtId());
-                    	if(tileEntityBlock.hasNbtData()){
-                    		CompoundTag rawTag = null;
-                    		if(block.getNbtId() != "Chest"){
+
+                    	if(!tileEntityBlock.hasNbtData() && !pc.isEmpty()){
+                    		//Log.debug("WE indicates that "+name+" is a TileEntityBlock ("+tileEntityBlock.getNbtId()+"), but it has no WE NBT data.");
+                    		rawTag = NBTStore.toWENBT(pc.getString("id"),pc);
+                    	}
+
+                    	if(tileEntityBlock.hasNbtData()) {
+
+                    		if(tileEntityBlock.getNbtId() != "Chest"){
                     			// Get the list of key/values from the block
-                    			rawTag = NBTStore.toWENBT(tileEntityBlock.getNbtId(),pc);
-                    			Log.debug("Dumping the NBT data we got from " + b.getType().toString());
-                    			Log.debug(NBTStore.toString(pc));
-                    			Log.debug("Dumping the converted NBT Data : ");
-                    			NBTStore.logWENBT(rawTag);
+                    			rawTag = NBTStore.toWENBT(pc.getString("id"),pc);
+                    			//Log.debug("Dumping the NBT data we got from " + b.getType().toString());
+                    			//Log.debug(NBTStore.toString(pc));
+                    			//Log.debug("Dumping the converted NBT Data : ");
+                    			//NBTStore.logWENBT(rawTag);
                     			// If we're running this - its because WE is broken. We'll pull the
                     			// tag also from PowerNBT, and use that to "correct" the values of all
                     			// the WE tags.
                     		} else {
                     			//We can't handle chests - the read in data is for stupid
                     			//minecraft NBT stuff i dunno how to access yet. Let WE handle it.
-                    			
+
                     			// Get the list of key/values from the block
-                                rawTag = tileEntityBlock.getNbtData();
-                    		}
-
-                    		if (rawTag != null) {
-                    			Map<String, Tag> values = new HashMap<String, Tag>();
-                    			for (Entry<String, Tag> entry : rawTag.getValue().entrySet()) {
-                    				values.put(entry.getKey(), entry.getValue());
-                    			}
-
-                    			values.put("id", new StringTag("id", tileEntityBlock.getNbtId()));
-                    			values.put("x", new IntTag("x", x));
-                    			values.put("y", new IntTag("y", y));
-                    			values.put("z", new IntTag("z", z));
-
-                    			CompoundTag tileEntityTag = new CompoundTag("TileEntity", values);
-                    			//Log.debug("Displaying the NBT we got for this tag : ");
-                    			//NBTStore.logWENBT(tileEntityTag);
-                    			tileEntities.add(tileEntityTag);
+                    			rawTag = tileEntityBlock.getNbtData();
                     		}
                     	}
-                    }
+
+                    	if (rawTag != null && rawTag.getValue().size() != 4) {
+                    		//if its just ID/x/y/z ignore it! otherwise, save it!
+                    		Map<String, Tag> values = new HashMap<String, Tag>();
+                    		for (Entry<String, Tag> entry : rawTag.getValue().entrySet()) {
+                      			values.put(entry.getKey(), entry.getValue());
+
+                    		}
+
+                    		values.put("id", new StringTag("id", pc.getString("id")));
+                    		values.put("x", new IntTag("x", x));
+                    		values.put("y", new IntTag("y", y));
+                    		values.put("z", new IntTag("z", z));
+
+                    		CompoundTag tileEntityTag = new CompoundTag("TileEntity", values);
+                    		//Log.debug("Displaying the NBT we got for this tag : ");
+                    		//NBTStore.logWENBT(tileEntityTag);
+                    		tileEntities.add(tileEntityTag);
+
+                    	}
+                    } 
                 }
             }
         }
-        
+
         schematic.put("BlockMats", new ListTag("BlockMats", StringTag.class, blockMat)); //new ByteArrayTag("Blocks", blocks));
         schematic.put("BlockData", new ByteArrayTag("BlockData", blockData));
         schematic.put("Entities", new ListTag("Entities", CompoundTag.class, new ArrayList<Tag>()));
         schematic.put("TileEntities", new ListTag("TileEntities", CompoundTag.class, tileEntities));
-//        if (addBlocks != null) {
-//            schematic.put("AddBlocks", new ByteArrayTag("AddBlocks", addBlocks));
-//        }
+        schematic.put("nbtData", new ListTag("nbtTags", CompoundTag.class, nbtEntries));
 
         // Build and output
         CompoundTag schematicTag = new CompoundTag("ExtendedSchematic", schematic);
@@ -560,31 +590,31 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
         stream.close();
     }
 
-    
-   @Override
-   public boolean isOfFormat(File file) {
-       DataInputStream str = null;
-       try {
-           str = new DataInputStream(new GZIPInputStream(new FileInputStream(file)));
-           if ((str.readByte() & 0xFF) != NBTConstants.TYPE_COMPOUND) {
-               return false;
-           }
-           byte[] nameBytes = new byte[str.readShort() & 0xFFFF];
-           str.readFully(nameBytes);
-           String name = new String(nameBytes, NBTConstants.CHARSET);
-           return name.equals("ExtendedSchematic");
-       } catch (IOException e) {
-           return false;
-       } finally {
-           if (str != null) {
-               try {
-                   str.close();
-               } catch (IOException ignore) {
-                   // blargh
-               }
-           }
-       }
-   }
+
+    @Override
+    public boolean isOfFormat(File file) {
+    	DataInputStream str = null;
+    	try {
+    		str = new DataInputStream(new GZIPInputStream(new FileInputStream(file)));
+    		if ((str.readByte() & 0xFF) != NBTConstants.TYPE_COMPOUND) {
+    			return false;
+    		}
+    		byte[] nameBytes = new byte[str.readShort() & 0xFFFF];
+    		str.readFully(nameBytes);
+    		String name = new String(nameBytes, NBTConstants.CHARSET);
+    		return name.equals("ExtendedSchematic");
+    	} catch (IOException e) {
+    		return false;
+    	} finally {
+    		if (str != null) {
+    			try {
+    				str.close();
+    			} catch (IOException ignore) {
+    				// blargh
+    			}
+    		}
+    	}
+    }
 
     /**
      * Get child tag of a NBT structure.
@@ -596,16 +626,16 @@ public class MCEditExtendedSchematicFormat extends SchematicFormat{
      * @throws DataException if the tag does not exist or the tag is not of the expected type
      */
     private static <T extends Tag> T getChildTag(Map<String, Tag> items, String key,
-                                                 Class<T> expected) throws DataException {
+    		Class<T> expected) throws DataException {
 
-        if (!items.containsKey(key)) {
-            throw new DataException("Schematic file is missing a \"" + key + "\" tag");
-        }
-        Tag tag = items.get(key);
-        if (!expected.isInstance(tag)) {
-            throw new DataException(
-                    key + " tag is not of tag type " + expected.getName());
-        }
-        return expected.cast(tag);
+    	if (!items.containsKey(key)) {
+    		throw new DataException("Schematic file is missing a \"" + key + "\" tag");
+    	}
+    	Tag tag = items.get(key);
+    	if (!expected.isInstance(tag)) {
+    		throw new DataException(
+    				key + " tag is not of tag type " + expected.getName());
+    	}
+    	return expected.cast(tag);
     }
 }

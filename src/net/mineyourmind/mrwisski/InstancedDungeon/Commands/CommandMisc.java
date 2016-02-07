@@ -47,7 +47,7 @@ public class CommandMisc implements CommandFunctor {
 	public RetVal execute(ArrayList<String> arg, String pName) {
 		RetVal r = new RetVal();
 		FunctionsBridge.itemInfo i = bridge.getPlayerItemInHand(pName);
-		r.add("Item in hand : " + i.name + "x" + i.count + " :: " + i.material);
+		r.add("Item in hand : " + i.name + "x" + i.count + " :: " + i.material + ":" + i.meta);
 		return r;
 	}
 

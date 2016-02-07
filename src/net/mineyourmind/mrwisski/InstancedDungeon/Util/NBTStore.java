@@ -41,7 +41,7 @@ public class NBTStore {
 	}
 	
 	public void add(Vector pos, NBTCompound c){
-		Log.debug("NBTStore.add("+Util.vToStr(pos)+")");
+		//Log.debug("NBTStore.add("+Util.vToStr(pos)+")");
 		store.put(pos, c);
 		//Log.debug(NBTStore.toString(c));
 	}
@@ -54,7 +54,7 @@ public class NBTStore {
 		return (List<NBTCompound>) store.values();
 	}
 	public NBTCompound get(Vector pos){
-		Log.debug("NBTStore.get("+Util.vToStr(pos)+")");
+		//Log.debug("NBTStore.get("+Util.vToStr(pos)+")");
 		return store.get(Util.vToStr(pos));
 	}
 
@@ -74,7 +74,7 @@ public class NBTStore {
 	 * @return An NBTList created from l
 	 */
 	public static NBTList toPNBTList(ListTag l){
-		Log.debug("toPNBTList");
+		//Log.debug("toPNBTList");
 		List<Tag> lt = l.getValue();
 		
 		NBTList r = new NBTList();
@@ -103,7 +103,7 @@ public class NBTStore {
 	 * @return An NBTCompound created from the contents of weT
 	 */
 	public static NBTCompound toPNBT(CompoundTag weT){
-		Log.debug("NBTStore.toPnbt");
+		//Log.debug("NBTStore.toPnbt");
 		HashMap<String,Object> rmap = new HashMap<String, Object>();
 		
 		Map<String,Tag> m = weT.getValue();
@@ -112,7 +112,7 @@ public class NBTStore {
 		int cur = 0;
 		for(Tag T : m.values()){
 			cur++;
-			Log.debug("Processing tag "+cur+" of " + max);
+			//Log.debug("Processing tag "+cur+" of " + max);
 			switch(NBTUtils.getTypeCode(T.getClass())){
 		       case NBTConstants.TYPE_END:
 		    	   Log.debug("TYPE_END found at tag "+cur+" of " + max);
@@ -188,6 +188,7 @@ public class NBTStore {
 		
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public static Class getTagTypeFromDataType(Object v){
 		if(v.getClass() == byte.class){
 			return ByteTag.class;
@@ -218,7 +219,7 @@ public class NBTStore {
 		return null;
 	}
 	
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Tag toTag(String n, Object v){
 		if(v.getClass() == Byte.class){
 			return new ByteTag(n,(byte)v);
@@ -295,37 +296,37 @@ public class NBTStore {
 		
 		for (Entry<String, Object> e : t.entrySet()) {
 			if(e.getValue().getClass() == Byte.class){
-				Log.debug("Found a byte!");
+				//Log.debug("Found a byte!");
 				raw.put(e.getKey(), new ByteTag(e.getKey(), (byte)e.getValue()));				
 			} else if(e.getValue().getClass() == Short.class){
-				Log.debug("Found a short!");
+				//Log.debug("Found a short!");
 				raw.put(e.getKey(), new ShortTag(e.getKey(), (short)e.getValue()));				
 			} else if(e.getValue().getClass() == Integer.class){
-				Log.debug("Found an int");
+				//Log.debug("Found an int");
 				raw.put(e.getKey(), new IntTag(e.getKey(), (int)e.getValue()));				
 			} else if(e.getValue().getClass() == Long.class){
-				Log.debug("Found a long");
+				//Log.debug("Found a long");
 				raw.put(e.getKey(), new LongTag(e.getKey(), (long)e.getValue()));				
 			} else if(e.getValue().getClass() == Float.class){
-				Log.debug("Found a Float");
+				//Log.debug("Found a Float");
 				raw.put(e.getKey(), new FloatTag(e.getKey(), (float)e.getValue()));				
 			} else if(e.getValue().getClass() == Double.class){
-				Log.debug("Found a double");
+				//Log.debug("Found a double");
 				raw.put(e.getKey(), new DoubleTag(e.getKey(), (double)e.getValue()));				
 			} else if(e.getValue().getClass() == String.class){
-				Log.debug("Found a string");
+				//Log.debug("Found a string");
 				raw.put(e.getKey(), new StringTag(e.getKey(), (String)e.getValue()));				
 			} else if(e.getValue().getClass() == Byte[].class.getClass()){
-				Log.debug("Found a byte array");
+				//Log.debug("Found a byte array");
 				raw.put(e.getKey(), new ByteArrayTag(e.getKey(), (byte[])e.getValue()));
 			} else if(e.getValue().getClass() == Integer[].class){
-				Log.debug("Found an int array");
+				//Log.debug("Found an int array");
 				raw.put(e.getKey(), new IntArrayTag(e.getKey(), (int[])e.getValue()));				
 			} else if(e.getValue().getClass() == HashMap.class){
-				Log.debug("Found a compound");
+				//Log.debug("Found a compound");
 				raw.put(e.getKey(), toWENBT(name, (NBTCompound)e.getValue()));
 			} else if(e.getValue().getClass() == List.class){
-				Log.debug("Found a list");
+				//Log.debug("Found a list");
 				raw.put(e.getKey(), NBTStore.toWEList(e.getKey(), (List<Object>)e.getValue()));				
 			} else if(e.getValue().getClass() == NBTList.class){
 				Log.debug("Found an NBTlist - nothing we can do with this :(");
@@ -338,38 +339,11 @@ public class NBTStore {
 		return new CompoundTag(name, raw);
 	}
 	
-	public static Tag repairTagValue(Object value, Tag t){
-		switch(NBTUtils.getTypeCode(t.getClass())){
-			case NBTConstants.TYPE_END:
-				return t; // Nothing to fix here :D
-	        case NBTConstants.TYPE_BYTE:
-	        	return new ByteTag(t.getName(),(byte)value);
-	        case NBTConstants.TYPE_SHORT:
-	        	return new ShortTag(t.getName(),(short)value);
-	        case NBTConstants.TYPE_INT:
-	        	return new IntTag(t.getName(), (int)value);
-	        case NBTConstants.TYPE_LONG:
-	        	return new LongTag(t.getName(), (long)value);
-	        case NBTConstants.TYPE_FLOAT:
-	        	return new FloatTag(t.getName(),(float)value);
-	        case NBTConstants.TYPE_DOUBLE:
-	        	return new DoubleTag(t.getName(), (double)value);
-	        case NBTConstants.TYPE_STRING:
-	        	return new StringTag(t.getName(),(String)value);
-	        case NBTConstants.TYPE_BYTE_ARRAY:
-	        	return new ByteArrayTag(t.getName(),(byte[])value);
-	        case NBTConstants.TYPE_INT_ARRAY:
-	        	return new IntArrayTag(t.getName(),(int[])value);
-	        case NBTConstants.TYPE_LIST:
-	        	Log.error("Cannot fix tag of type NBTTAG_LIST!");
-	        	return null;
-	        	//return new ListTag(t.getName(),null);
-	        case NBTConstants.TYPE_COMPOUND:
-	        	Log.error("Cannot fix tag of type NBTTAG_COMPOUND!");
-	        	return null;
-	        default:
-	            Log.error("Invalid tag type : " + NBTUtils.getTypeName(t.getClass()) + ".");
-	            return null;
-		}
+	public static NBTCompound fromRaw(Object Tag){
+		return NBTCompound.forNBTCopy(Tag);	
+	}
+	
+	public static NBTList listFromRaw(Object Tag){
+		return NBTList.forNBTCopy(Tag);
 	}
 }

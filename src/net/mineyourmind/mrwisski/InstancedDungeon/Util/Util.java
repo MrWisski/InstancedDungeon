@@ -4,16 +4,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.logging.Logger;
-
 import org.apache.commons.lang.time.DurationFormatUtils;
 
 import com.sk89q.worldedit.Vector;
-
-import net.mineyourmind.mrwisski.InstancedDungeon.InstancedDungeon;
 
 //Please only put server-agnostic functions here.
 public class Util {
@@ -76,6 +70,13 @@ public class Util {
 		int regionX = (int)Math.floor((coords.getBlockX() / 16) / 32.0);
 		int regionZ = (int)Math.floor((coords.getBlockZ() / 16) / 32.0);
 		return new Vector(regionX,0,regionZ);
+	}
+	
+	public static com.sk89q.worldedit.Vector blockToChunk(com.sk89q.worldedit.Vector coords){
+		int chunkX = (int)Math.floor(coords.getBlockX() / 16);
+		int chunkZ = (int)Math.floor(coords.getBlockZ() / 16);
+		
+		return new com.sk89q.worldedit.Vector(chunkX,0,chunkZ);
 	}
 	
 	public static ArrayList<String> argsToList(String[] arguments){

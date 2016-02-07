@@ -67,23 +67,6 @@ public class CommandDungeon implements CommandFunctor {
 			case "unready":
 				arg.remove(0);
 				return DungeonManager.unReadyDungeon(arg.get(0));
-			case "testTE":
-				Class lock = null;
-				try {
-					lock = Class.forName("thaumcraft.common.tiles.TileEldritchLock");
-				} catch (ClassNotFoundException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				if(lock == null){
-					r.Err("Couldn't find thaumcraft TileEldritchLock class!");
-					return r;
-				}
-				
-				
-				
-				r.tru();
-				return r;
 			default:
 				Log.debug("default handler.");
 				r.addAll(getFullHelp());

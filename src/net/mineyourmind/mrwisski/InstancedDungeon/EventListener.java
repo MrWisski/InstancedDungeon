@@ -5,7 +5,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import net.mineyourmind.mrwisski.InstancedDungeon.Config.Config;
-import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.DungeonManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Dungeons.InstanceManager;
 import net.mineyourmind.mrwisski.InstancedDungeon.Util.Log;
 
@@ -29,21 +28,26 @@ public class EventListener implements Listener {
 		
 	}
 	
+	@SuppressWarnings("deprecation")
 	@EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerInteract(final PlayerInteractEvent event) {
+//		if(event.getPlayer().getWorld().getName().equalsIgnoreCase(Config.dimension)){
+//			return; // not for us, or we don't actually care.
+//		}
+		if(event.getClickedBlock() == null || event.getItem() == null) return;
 		Log.debug("onPlayerInteract :");
-		Log.debug("With : " + Material.getMaterial(event.getItem().getType().getId()).toString());
-		Log.debug("On : " + event.getClickedBlock().getType().toString());
+		Log.debug("With : " + Material.getMaterial(event.getItem().getType().getId()).toString() + ":" + event.getItem().getData().getData());
+		Log.debug("On : " + event.getClickedBlock().getType().toString() + event.getClickedBlock().getData());
 		Log.debug("By : " + event.getAction().toString());
 		if(event.getAction() == Action.RIGHT_CLICK_BLOCK){
-			if(Material.getMaterial(event.getItem().getType().getId()).toString().equalsIgnoreCase("THAUMCRAFT_ITEMELDRITCHOBJECT")){
+			if(Material.getMaterial(event.getItem().getType().getId()).toString().equalsIgnoreCase("THAUMCRAFT_ITEMELDRITCHOBJECT") && event.getItem().getData().getData() == Config.thaumtabletmeta){
 				Log.debug("Player is using an eldritch tablet!");
 				if(event.getClickedBlock().getType().toString().equalsIgnoreCase("THAUMCRAFT_BLOCKELDRITCH")){
 					Log.debug("Got the location of the eldritch block player is using it on!");
 					Log.debug("Aborting that call, and redirecting to DungeonManager for handling!");
 					event.setCancelled(true);
 					
-					DungeonManager.handleEldritchLock(event.getClickedBlock(), event.getPlayer());
+					ThaumcraftBridge.handleEldritchLock(event.getClickedBlock(), event.getPlayer());
 				}
 				
 			}
@@ -65,6 +69,7 @@ public class EventListener implements Listener {
     	}
     }
 	
+	@SuppressWarnings("deprecation")
 	@EventHandler(priority = EventPriority.NORMAL)
     public void onBlockPlace(final BlockPlaceEvent event) {
 		Log.debug("EventListener.onBlockPlace");
